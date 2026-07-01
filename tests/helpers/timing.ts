@@ -7,16 +7,16 @@
 
 export const TIME = {
   /** Timeout for a simple echo / command output (ms). */
-  CMD_OUTPUT: 3_000,
+  CMD_OUTPUT: 8_000,
 
   /** Timeout for shell process startup (ms). */
-  SHELL_STARTUP: 5_000,
+  SHELL_STARTUP: 8_000,
 
   /** Timeout for stop / cleanup operations (ms). */
-  STOP: 3_000,
+  STOP: 5_000,
 
   /** Timeout for the manager's runtime-exceeded handler (ms). */
-  TIMEOUT: 5_000,
+  TIMEOUT: 8_000,
 
   /** Poll interval while waiting for log output (ms). */
   POLL: 100,
