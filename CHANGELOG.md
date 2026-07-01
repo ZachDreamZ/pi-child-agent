@@ -1,0 +1,19 @@
+# Changelog
+
+## 0.1.0 (2026-07-01)
+
+### Initial Release
+
+- **Windows-native backend** (`WindowsNativeBackend`): spawns `pwsh` → `powershell.exe` → `cmd.exe` with full process-tree management.
+- **Tmux backend** for Linux/macOS with session isolation.
+- **Container backend** (Docker/Podman) for Linux containers with read-only workspace mounts.
+- **LocalShell backend** for direct shell spawning on platforms without tmux.
+- **Auto backend detection** selects the best backend for the host OS.
+- **8 tool registrations** for Pi: `child_agent_create`, `child_agent_send`, `child_agent_status`, `child_agent_read`, `child_agent_collect`, `child_agent_stop`, `child_agent_list`, `child_agent_cleanup`.
+- **Security guard**: protects Windows system paths (`C:\Windows`, `C:\Program Files`, etc.), detects high-risk commands (`rm -rf /`, `format`, etc.), scrubs secret env vars.
+- **Config system**: `maxSimultaneousChildren`, `maxLogSize`, `maxRuntime`, `protectedPaths`, `highRiskCommands`, `secretEnvVars`.
+- **Logging**: file-based log with `[PICA_CMD]`, `[PICA_DONE]`, `[PICA_TIMEOUT]`, `[PICA_BLOCKED]` sentinels.
+- **Scripts**: `doctor.ts` (18 checks), `validate-tools.ts`, `install.ps1`, `install.sh`, `uninstall.sh`, `update.sh`.
+- **Tests**: 48-assertion Windows smoke test, 20-assertion phase 2 hardening test, 20-assertion crash recovery test, 6-assertion standalone test, container smoke test.
+- **PTY research** documented in `docs/pty-research.md`.
+- **CI**: GitHub Actions workflow for Windows and Ubuntu with artifact uploads.

@@ -1,0 +1,129 @@
+# GitHub Actions CI for pi-child-agent
+# Runs on Windows and Ubuntu to verify cross-platform support.
+
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:  # allow manual trigger
+
+jobs:
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+        shell: pwsh
+
+      - name: Build
+        run: npx tsc -p tsconfig.json 2>&1 | Tee-Object -FilePath build.log
+        shell: pwsh
+
+      - name: Tool validation
+        run: npx tsx scripts/validate-tools.ts 2>&1 | Tee-Object -FilePath validate.log
+        shell: pwsh
+
+      - name: Doctor
+        run: npx tsx scripts/doctor.ts 2>&1 | Tee-Object -FilePath doctor.log
+        shell: pwsh
+        continue-on-error: true
+
+      - name: Standalone test
+        run: npx tsx tests/test-extension.ts 2>&1 | Tee-Object -FilePath standalone.log
+        shell: pwsh
+
+      - name: Windows native smoke test
+        run: npx tsx tests/windows-native-smoke.ts 2>&1 | Tee-Object -FilePath windows-smoke.log
+        shell: pwsh
+
+      - name: Phase 2 hardening test
+        run: npx tsx tests/phase2-hardening.ts 2>&1 | Tee-Object -FilePath phase2.log
+        shell: pwsh
+
+      - name: Crash recovery test
+        run: npx tsx tests/crash-recovery.ts 2>&1 | Tee-Object -FilePath crash.log
+        shell: pwsh
+
+      - name: Container smoke test (skip if no Docker)
+        run: npx tsx tests/container-smoke.ts 2>&1 | Tee-Object -FilePath container.log
+        shell: pwsh
+        continue-on-error: true
+
+      - name: Upload test logs as artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-logs-windows
+          path: |
+            build.log
+            validate.log
+            doctor.log
+            standalone.log
+            windows-smoke.log
+            phase2.log
+            crash.log
+            container.log
+
+  test-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npx tsc -p tsconfig.json 2>&1 | tee build.log
+
+      - name: Tool validation
+        run: npx tsx scripts/validate-tools.ts 2>&1 | tee validate.log
+
+      - name: Doctor
+        run: npx tsx scripts/doctor.ts 2>&1 | tee doctor.log
+        continue-on-error: true
+
+      - name: Standalone test
+        run: npx tsx tests/test-extension.ts 2>&1 | tee standalone.log
+        # On Linux, the test may skip if it expects Windows-only features.
+        continue-on-error: true
+
+      - name: Phase 2 hardening test
+        run: npx tsx tests/phase2-hardening.ts 2>&1 | tee phase2.log
+
+      - name: Crash recovery test
+        run: npx tsx tests/crash-recovery.ts 2>&1 | tee crash.log
+        # crash-recovery tests are Windows-specific, may skip gracefully
+        continue-on-error: true
+
+      - name: Container smoke test (skip if no Docker)
+        run: npx tsx tests/container-smoke.ts 2>&1 | tee container.log
+        continue-on-error: true
+
+      - name: Upload test logs as artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-logs-ubuntu
+          path: |
+            build.log
+            validate.log
+            doctor.log
+            standalone.log
+            phase2.log
+            crash.log
+            container.log
