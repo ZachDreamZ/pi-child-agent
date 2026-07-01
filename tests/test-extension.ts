@@ -30,6 +30,8 @@ async function runTests() {
   const scratchDir = path.join("C:\\Users\\Public", "pi-child-test-scratch");
   await fs.mkdir(scratchDir, { recursive: true });
 
+  let exitCode = 0;
+
   try {
     // Test 1: OS Detection and Backend Selection
     console.log("\nTest 1: Backend Selection...");
@@ -74,8 +76,22 @@ async function runTests() {
   } catch (e) {
     console.error("\nTest failed!");
     console.error(e);
-    process.exit(1);
+    exitCode = 1;
+  } finally {
+    // Always cleanup — close open handles so Node.js can exit cleanly
+    try {
+      await manager.cleanupAll();
+    } catch {}
   }
+
+  // Debug: print active handles if DEBUG_HANDLES=1
+  if (process.env.DEBUG_HANDLES === "1") {
+    const handles = (process as any)._getActiveHandles?.() ?? [];
+    console.log("\n[DEBUG] Active handles:", handles.length);
+    handles.forEach((h: any) => console.log("  -", h.constructor?.name));
+  }
+
+  process.exit(exitCode);
 }
 
 runTests();

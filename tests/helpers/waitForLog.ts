@@ -6,7 +6,7 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 
 /**
  * Generate a globally unique sentinel ID for a single wait cycle.

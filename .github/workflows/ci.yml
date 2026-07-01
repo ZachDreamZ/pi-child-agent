@@ -19,6 +19,7 @@ on:
 jobs:
   test-windows:
     runs-on: windows-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -87,6 +88,7 @@ jobs:
 
   test-ubuntu:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -113,7 +115,7 @@ jobs:
         continue-on-error: true
 
       - name: Standalone test
-        run: npx tsx tests/test-extension.ts 2>&1 | tee logs/standalone.log
+        run: timeout 60 npx tsx tests/test-extension.ts 2>&1 | tee logs/standalone.log
         continue-on-error: true
 
       - name: Container smoke test (skip if no Docker)

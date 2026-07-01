@@ -94,6 +94,8 @@ export class ChildSessionManager {
           console.error(`Timeout handler failed for session ${id}:`, e);
         }
       }, maxRuntime);
+      // unref() the timer so it doesn't keep Node.js alive if all other work is done.
+      session.timeoutTimer.unref?.();
     }
 
     this.sessions.set(id, session);
