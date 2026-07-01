@@ -1,9 +1,47 @@
 {
   "name": "pi-child-agent",
   "version": "0.1.0",
-  "description": "Pi extension for isolated parent-child agent workflows",
-  "main": "index.ts",
+  "description": "Native Windows-friendly child-agent workflow extension for Pi. Spawn isolated worker agents for code audit, delegated tasks, and sub-process management.",
   "type": "module",
+  "main": "index.ts",
+  "license": "MIT",
+  "keywords": [
+    "pi",
+    "pi-extension",
+    "coding-agent",
+    "child-agent",
+    "subagent",
+    "windows",
+    "tmux",
+    "docker",
+    "podman"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZachDreamZ/pi-child-agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ZachDreamZ/pi-child-agent/issues"
+  },
+  "homepage": "https://github.com/ZachDreamZ/pi-child-agent#readme",
+  "files": [
+    "*.ts",
+    "backends/*.ts",
+    "config/*.ts",
+    "scripts/*.ts",
+    "scripts/*.sh",
+    "scripts/*.ps1",
+    "security/*.ts",
+    "tests/helpers/*.ts",
+    "types/*.d.ts",
+    "utils/*.ts",
+    "docs/*.md",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "VERSION",
+    "RELEASE_CHECKLIST.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "doctor": "tsx scripts/doctor.ts",
