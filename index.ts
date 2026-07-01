@@ -140,12 +140,10 @@ export default async function (pi: ExtensionAPI) {
     }),
     execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
       try {
-        let logs = await manager.readLog(params.id);
-        // Clean up internal sentinels for the user view
-        const cleanLogs = logs.replace(/\[PICA_CMD\].*?\n/g, "👉 **Command**: ").replace(/\[PICA_DONE\]\n/g, "\n✅ **Done**\n");
-        
+        const logs = await manager.readLog(params.id);
+        const formattedLogs = manager.formatLogs(logs);
         return {
-          content: [{ type: "text", text: `### 📝 Logs for \`${params.id}\`\n\n\`\`\`text\n${cleanLogs}\n\`\`\`` }],
+          content: [{ type: "text", text: `### 📝 Logs for \`${params.id}\`\n\n\`\`\`text\n${formattedLogs}\n\`\`\`` }],
           details: {},
         };
       } catch (e: any) {
@@ -189,15 +187,15 @@ export default async function (pi: ExtensionAPI) {
     }),
     execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
       try {
-        const logs = await manager.readLog(params.id);
-        await manager.stopSession(params.id);
+        const logs = await manager.collect(params.id);
+        const formattedLogs = manager.formatLogs(logs);
         return {
-          content: [{ type: "text", text: `Collected output for ${params.id} and stopped the agent.\n\nFinal Output:\n${logs}` }],
+          content: [{ type: "text", text: `### ✅ Result Collected\n\nChild agent \`${params.id}\` has been stopped.\n\n**Final Output**:\n\`\`\`text\n${formattedLogs}\n\`\`\`` }],
           details: {},
         };
       } catch (e: any) {
         return {
-          content: [{ type: "text", text: `Failed to collect result: ${e.message}` }],
+          content: [{ type: "text", text: `❌ **Failed to collect result**: ${e.message}` }],
           details: {},
         };
       }

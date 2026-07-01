@@ -161,6 +161,13 @@ export class ChildSessionManager {
     return await this.logger.read(session.logPath, this.config.get("maxLogSize"));
   }
 
+  formatLogs(logs: string): string {
+    return logs
+      .replace(/\[PICA_CMD\] (.*)\n/g, "👉 **Command**: $1\n")
+      .replace(/\[PICA_DONE\]\n/g, "✅ **Done**\n")
+      .replace(/\[PICA_DONE\]$/g, "✅ **Done**");
+  }
+
   async collect(id: string): Promise<string> {
     const logs = await this.readLog(id);
     await this.stopSession(id);
