@@ -11,7 +11,7 @@
   npx tsx scripts/doctor.ts
   npm test
   ```
-- [ ] Run `npm install` to verify dependencies resolve
+- [ ] Run `npm install --ignore-scripts` to verify dependencies resolve
 - [ ] Verify `README.md` tool names match registered tools (no stale dotted names)
 - [ ] Verify `README.md` examples use correct command syntax
 - [ ] Check that `VERSION` file matches `package.json` version

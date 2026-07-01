@@ -20,14 +20,17 @@
 1. Copy the `pi-child-agent` folder to your Pi extensions directory:
    - Global: `~/.pi/agent/extensions/pi-child-agent`
    - Project-local: `.pi/extensions/pi-child-agent`
-2. Run `npm install` inside the extension directory.
-3. Restart Pi or use `/reload`.
+2. Run `npm install --ignore-scripts` inside the extension directory to install dependencies.
+3. Install the extension using one of the following:
+   - **Linux/macOS**: `npm run install:pi`
+   - **Windows**: `npm run install:win`
+4. Restart Pi or use `/reload`.
 
 To install from the command line:
 ```bash
 cd ~/.pi/agent/extensions
 cp -r /path/to/pi-child-agent .
-cd pi-child-agent && npm install
+cd pi-child-agent && npm install --ignore-scripts && npm run install:pi
 ```
 
 ## Usage

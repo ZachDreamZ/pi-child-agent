@@ -23,7 +23,8 @@ jobs:
         shell: pwsh
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm install --ignore-scripts 2>&1 | Tee-Object -FilePath logs/install.log
         shell: pwsh
 
       - name: Build
@@ -81,7 +82,8 @@ jobs:
         run: mkdir -p logs
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm install --ignore-scripts 2>&1 | tee logs/install.log
 
       - name: Build
         run: npx tsc -p tsconfig.json 2>&1 | tee logs/build.log
