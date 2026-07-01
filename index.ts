@@ -38,10 +38,13 @@ export default async function (pi: ExtensionAPI) {
       const mode = (params.backendMode as any) || "auto";
       const backend = await BackendFactory.createBackend(mode, manager.config.getConfig());
       
-      // Ensure we have a scratch path. If not provided, create a per-child one in tmp.
+      // Ensure we have a scratch path. If not provided, create a per-child one in a safe public dir.
       let scratchPath = params.scratchPath;
       if (!scratchPath) {
-        scratchPath = path.join(os.tmpdir(), "pi-child-agent", "scratch", `child_${Date.now()}`);
+        const root = isWindows() 
+          ? path.join("C:\\Users\\Public", "pi-child-agent", "scratch") 
+          : path.join(os.tmpdir(), "pi-child-agent", "scratch");
+        scratchPath = path.join(root, `child_${Date.now()}`);
       }
 
       try {

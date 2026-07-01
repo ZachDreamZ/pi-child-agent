@@ -33,7 +33,11 @@ export class ChildSessionManager {
     this.config = new ConfigLoader();
     this.guard = new SecurityGuard(this.config.get("protectedPaths"));
     
-    this.baseDir = path.join(os.tmpdir(), "pi-child-agent");
+    const tmpRoot = isWindows() 
+      ? path.join("C:\\Users\\Public", "pi-child-agent") 
+      : path.join(os.tmpdir(), "pi-child-agent");
+
+    this.baseDir = tmpRoot;
     this.logger = new Logger(path.join(this.baseDir, "logs"));
   }
 
