@@ -8,13 +8,6 @@ Native Windows-friendly child-agent workflow extension for Pi. Spawn isolated wo
 pi install npm:pi-child-agent
 ```
 
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NPM_TOKEN` | No | npm automation token for publishing (optional) |
-| `GH_TOKEN` | No | GitHub personal access token (optional) |
-
 ## Tools
 
 The extension registers eight tools callable by the parent LLM agent:
