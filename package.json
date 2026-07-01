@@ -6,7 +6,7 @@
   "main": "index.ts",
   "license": "MIT",
   "keywords": [
-    "pi",
+    "pi-package",
     "pi-extension",
     "coding-agent",
     "child-agent",
@@ -32,16 +32,17 @@
     "scripts/*.sh",
     "scripts/*.ps1",
     "security/*.ts",
-    "tests/helpers/*.ts",
     "types/*.d.ts",
     "utils/*.ts",
     "docs/*.md",
     "README.md",
     "LICENSE",
     "CHANGELOG.md",
-    "VERSION",
-    "RELEASE_CHECKLIST.md"
+    "VERSION"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "doctor": "tsx scripts/doctor.ts",
@@ -58,7 +59,9 @@
     "test:fast": "tsx tests/test-extension.ts && tsx tests/windows-native-smoke.ts && tsx tests/live-workflow.ts && tsx tests/container-smoke.ts",
     "test:full": "tsx tests/test-extension.ts && tsx tests/windows-native-smoke.ts && tsx tests/phase2-hardening.ts && tsx tests/crash-recovery.ts && tsx tests/live-workflow.ts && tsx tests/container-smoke.ts",
     "test:ci:windows": "tsx scripts/validate-tools.ts && tsx scripts/doctor.ts && tsx tests/test-extension.ts && tsx tests/windows-native-smoke.ts && tsx tests/phase2-hardening.ts && tsx tests/crash-recovery.ts && tsx tests/container-smoke.ts",
-    "test:ci:ubuntu": "tsx scripts/validate-tools.ts && tsx scripts/doctor.ts && tsx tests/test-extension.ts && tsx tests/container-smoke.ts"
+    "test:ci:ubuntu": "tsx scripts/validate-tools.ts && tsx scripts/doctor.ts && tsx tests/test-extension.ts && tsx tests/container-smoke.ts",
+    "publish:npm": "npm run build && npm run validate:tools && npm publish",
+    "prepublish:npm": "node -e \"if(!process.env.NPM_TOKEN) throw new Error('NPM_TOKEN not set in .env')\""
   },
   "dependencies": {
     "tree-kill": "^1.2.2",
