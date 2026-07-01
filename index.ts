@@ -57,12 +57,15 @@ export default async function (pi: ExtensionAPI) {
         const session = await manager.createSession(backend, scratchPath, logPath);
         
         return {
-          content: [{ type: "text", text: `Child agent created successfully.\nID: ${session.id}\nBackend: ${session.backendType}\nStatus: ${session.status}\nScratch Path: ${session.scratchPath}` }],
+          content: [{ 
+            type: "text", 
+            text: `### 🚀 Child Agent Created\n\n${manager.formatStatus(session)}\n\n**Next Step**: Use \`child_agent_send\` to assign a task to this agent.` 
+          }],
           details: {},
         };
       } catch (e: any) {
         return {
-          content: [{ type: "text", text: `Failed to create child agent: ${e.message}` }],
+          content: [{ type: "text", text: `❌ **Failed to create child agent**: ${e.message}` }],
           details: {},
         };
       }
@@ -119,10 +122,10 @@ export default async function (pi: ExtensionAPI) {
     }),
     execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
       const session = manager.getSession(params.id);
-      if (!session) return { content: [{ type: "text", text: `Error: Child session ${params.id} not found.` }], details: {} };
+      if (!session) return { content: [{ type: "text", text: `❌ **Error**: Child session \`${params.id}\` not found.` }], details: {} };
 
       return {
-        content: [{ type: "text", text: `Child Status:\nID: ${session.id}\nStatus: ${session.status}\nBackend: ${session.backendType}\nOS: ${session.osType}\nStarted: ${new Date(session.startTime).toLocaleString()}\nPID: ${session.pid || "N/A"}\nScratch: ${session.scratchPath}` }],
+        content: [{ type: "text", text: `### 📊 Session Status\n\n${manager.formatStatus(session)}` }],
         details: {},
       };
     }) as ToolHandler,
@@ -137,14 +140,17 @@ export default async function (pi: ExtensionAPI) {
     }),
     execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
       try {
-        const logs = await manager.readLog(params.id);
+        let logs = await manager.readLog(params.id);
+        // Clean up internal sentinels for the user view
+        const cleanLogs = logs.replace(/\[PICA_CMD\].*?\n/g, "👉 **Command**: ").replace(/\[PICA_DONE\]\n/g, "\n✅ **Done**\n");
+        
         return {
-          content: [{ type: "text", text: `Logs for ${params.id}:\n\n${logs}` }],
+          content: [{ type: "text", text: `### 📝 Logs for \`${params.id}\`\n\n\`\`\`text\n${cleanLogs}\n\`\`\`` }],
           details: {},
         };
       } catch (e: any) {
         return {
-          content: [{ type: "text", text: `Failed to read logs: ${e.message}` }],
+          content: [{ type: "text", text: `❌ **Failed to read logs**: ${e.message}` }],
           details: {},
         };
       }
@@ -205,11 +211,18 @@ export default async function (pi: ExtensionAPI) {
     parameters: Type.Object({}),
     execute: (async (_toolCallId, _params, _signal, _onUpdate, ctx): Promise<any> => {
       const sessions = manager.listSessions();
-      if (sessions.length === 0) return { content: [{ type: "text", text: "No active child agents." }], details: {} };
+      if (sessions.length === 0) return { content: [{ type: "text", text: "No active child agents found." }], details: {} };
 
-      const list = sessions.map(s => `${s.id} [${s.status}] (${s.backendType})`).join("\n");
+      let table = `### 📋 Active Child Agents\n\n| ID | Status | Backend |\n|---|---|---|\n`;
+      for (const s of sessions) {
+        const statusEmoji = {
+          starting: "🟡", running: "🟢", done: "✅", failed: "❌", stopped: "🔴", timed_out: "⚠️",
+        }[s.status] || "⚪";
+        table += `| \`${s.id}\` | ${statusEmoji} ${s.status} | \`${s.backendType}\` |\n`;
+      }
+
       return {
-        content: [{ type: "text", text: `Active Child Agents:\n${list}` }],
+        content: [{ type: "text", text: table }],
         details: {},
       };
     }) as ToolHandler,

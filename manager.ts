@@ -113,6 +113,27 @@ export class ChildSessionManager {
     return this.sessions.get(id);
   }
 
+  formatStatus(session: ChildSession): string {
+    const statusEmoji = {
+      starting: "🟡",
+      running: "🟢",
+      done: "✅",
+      failed: "❌",
+      stopped: "🔴",
+      timed_out: "⚠️",
+    }[session.status] || "⚪";
+
+    return [
+      `**Session ID**: \`${session.id}\``,
+      `**Status**: ${statusEmoji} ${session.status.toUpperCase()}`,
+      `**Backend**: \`${session.backendType}\``,
+      `**OS**: \`${session.osType}\``,
+      `**Started**: ${new Date(session.startTime).toLocaleString()}`,
+      `**PID**: \`${session.pid || "N/A"}\``,
+      `**Scratch**: \`${session.scratchPath}\``,
+    ].join("\n");
+  }
+
   listSessions(): ChildSession[] {
     return Array.from(this.sessions.values());
   }
@@ -138,6 +159,12 @@ export class ChildSessionManager {
     const session = this.getSession(id);
     if (!session) throw new Error(`Session ${id} not found`);
     return await this.logger.read(session.logPath, this.config.get("maxLogSize"));
+  }
+
+  async collect(id: string): Promise<string> {
+    const logs = await this.readLog(id);
+    await this.stopSession(id);
+    return logs;
   }
 
   async cleanupAll(): Promise<void> {
