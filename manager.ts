@@ -59,6 +59,9 @@ export class ChildSessionManager {
       throw new Error(validation.reason);
     }
 
+    // Ensure the log directory exists before starting backend
+    await fs.mkdir(path.dirname(logPath), { recursive: true });
+
     // Start the backend
     const { pid } = await backend.start(process.cwd(), scratchPath, logPath);
 
