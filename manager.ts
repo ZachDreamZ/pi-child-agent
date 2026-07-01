@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { SessionBackend } from "./backends/base.js";
-import { getOSType } from "./utils/os.js";
+import { isWindows, getOSType } from "./utils/os.js";
 import { ConfigLoader } from "./config/loader.js";
 import { SecurityGuard } from "./security/guard.js";
 import { Logger } from "./utils/logging.js";
@@ -33,7 +33,7 @@ export class ChildSessionManager {
     this.config = new ConfigLoader();
     this.guard = new SecurityGuard(this.config.get("protectedPaths"));
     
-    const tmpRoot = isWindows() 
+    const tmpRoot = process.platform === 'win32' 
       ? path.join("C:\\Users\\Public", "pi-child-agent") 
       : path.join(os.tmpdir(), "pi-child-agent");
 

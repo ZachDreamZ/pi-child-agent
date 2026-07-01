@@ -1,8 +1,10 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { ChildSessionManager } from "./manager.js";
-import { BackendFactory } from "./backends/factory.js";
+import { isWindows, getOSType } from "./utils/os.js";
 import { SecurityGuard } from "./security/guard.js";
+import { ConfigLoader } from "./config/loader.js";
+import { BackendFactory } from "./backends/factory.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -41,7 +43,7 @@ export default async function (pi: ExtensionAPI) {
       // Ensure we have a scratch path. If not provided, create a per-child one in a safe public dir.
       let scratchPath = params.scratchPath;
       if (!scratchPath) {
-        const root = isWindows() 
+        const root = process.platform === 'win32' 
           ? path.join("C:\\Users\\Public", "pi-child-agent", "scratch") 
           : path.join(os.tmpdir(), "pi-child-agent", "scratch");
         scratchPath = path.join(root, `child_${Date.now()}`);
