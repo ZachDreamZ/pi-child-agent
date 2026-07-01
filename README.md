@@ -96,3 +96,7 @@ child_agent_collect({ id: "child_12345" })
 ```
 child_agent_create({ backendMode: "docker", scratchPath: "/tmp/child-scratch" })
 ```
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
