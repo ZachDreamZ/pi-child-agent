@@ -118,7 +118,10 @@ async function main(): Promise<void> {
   let session;
   try {
     session = await manager.createSession(autoBackend, scratchDir, logPath);
-    assert("session created successfully", session !== undefined);
+    if (!session) {
+      throw new Error("Session was not created (returned undefined)");
+    }
+    assert("session created successfully", true);
     assert("session status is 'running'", session.status === "running");
     assert("session has a non-zero PID", typeof session.pid === "number" && session.pid! > 0);
     assert("scratchPath matches provided path", session.scratchPath === scratchDir);
@@ -176,8 +179,14 @@ async function main(): Promise<void> {
   // ── 11: status ──────────────────────────────────────────────────────────
   console.log("[11] child_agent.status");
 
-  const s = manager.getSession(session.id)!;
-  assert("status returns valid session", s !== undefined);
+  const s = manager.getSession(session.id);
+  if (!s) {
+    assert("status returns valid session", false, "session not found in manager");
+    console.log();
+    // We can't continue if session is missing
+    return; 
+  }
+  assert("status returns valid session", true);
   assert("status includes backend type", s.backendType === "windows-native");
   assert("status includes PID", typeof s.pid === "number" && s.pid! > 0);
   assert("status includes scratch path", s.scratchPath.length > 0);

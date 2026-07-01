@@ -13,11 +13,15 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ── Read the extension source to extract tool registrations ─────────────────
 const indexSrc = fs.readFileSync(
-  path.resolve(import.meta.dirname, "..", "index.ts"),
+  path.resolve(__dirname, "..", "index.ts"),
   "utf8"
 );
 
@@ -148,7 +152,7 @@ function main(): number {
   }
 
   // 3. Read README and verify tool name consistency
-  const readmePath = path.resolve(import.meta.dirname, "..", "README.md");
+  const readmePath = path.resolve(__dirname, "..", "README.md");
   if (fs.existsSync(readmePath)) {
     const readme = fs.readFileSync(readmePath, "utf8");
     let readmeErrors = 0;
@@ -198,8 +202,8 @@ function main(): number {
   }
 
   // 4. Version file check
-  const versionFilePath = path.resolve(import.meta.dirname, "..", "VERSION");
-  const packageJsonPath = path.resolve(import.meta.dirname, "..", "package.json");
+  const versionFilePath = path.resolve(__dirname, "..", "VERSION");
+  const packageJsonPath = path.resolve(__dirname, "..", "package.json");
   let versionOk = true;
 
   console.log("[Version consistency]");

@@ -26,3 +26,7 @@ Thumbs.db
 *.js.map
 *.d.ts
 /build/
+
+# But allow our Pi type shim in types/
+!types/
+!types/*.d.ts

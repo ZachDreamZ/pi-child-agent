@@ -19,13 +19,17 @@
     "test:windows-native": "tsx tests/windows-native-smoke.ts"
   },
   "dependencies": {
-    "typebox": "latest",
-    "tree-kill": "^1.2.2"
+    "tree-kill": "^1.2.2",
+    "typebox": "latest"
   },
   "devDependencies": {
+    "@types/node": "^26.1.0",
+    "tsx": "latest",
     "typescript": "^5.0.0"
   },
   "pi": {
-    "extensions": ["index.ts"]
+    "extensions": [
+      "index.ts"
+    ]
   }
 }

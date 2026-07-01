@@ -7,6 +7,19 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
+type ToolHandler = (
+  toolCallId: string,
+  params: any,
+  signal: AbortSignal,
+  onUpdate: (update: any) => void,
+  ctx: { ui: { confirm: (msg: string, title: string) => Promise<boolean>, notify: (msg: string, level: string) => void } }
+) => Promise<any>;
+
+type CommandHandler = (
+  args: string,
+  ctx: { ui: { notify: (msg: string, level: string) => void } }
+) => Promise<void>;
+
 export default async function (pi: ExtensionAPI) {
   const manager = new ChildSessionManager(pi);
   await manager.initialize();
@@ -21,7 +34,7 @@ export default async function (pi: ExtensionAPI) {
       backendMode: Type.Optional(Type.String({ description: "Backend mode: auto, tmux, windows-native, docker, podman, local-shell. Default is auto." })),
       scratchPath: Type.String({ description: "Path to the writable scratch directory for the child agent." }),
     }),
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
       const mode = (params.backendMode as any) || "auto";
       const backend = await BackendFactory.createBackend(mode, manager.config.getConfig());
       
@@ -48,7 +61,7 @@ export default async function (pi: ExtensionAPI) {
           details: {},
         };
       }
-    },
+    }) as ToolHandler,
   });
 
   pi.registerTool({
@@ -59,7 +72,7 @@ export default async function (pi: ExtensionAPI) {
       id: Type.String({ description: "The ID of the child agent session." }),
       command: Type.String({ description: "The command or task to execute." }),
     }),
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
       const session = manager.getSession(params.id);
       if (!session) return { content: [{ type: "text", text: `Error: Child session ${params.id} not found.` }], details: {} };
       if (session.status !== "running") return { content: [{ type: "text", text: `Error: Child session ${params.id} is not running (Status: ${session.status}).` }], details: {} };
@@ -89,7 +102,7 @@ export default async function (pi: ExtensionAPI) {
           details: {},
         };
       }
-    },
+    }) as ToolHandler,
   });
 
   pi.registerTool({
@@ -99,7 +112,7 @@ export default async function (pi: ExtensionAPI) {
     parameters: Type.Object({
       id: Type.String({ description: "The ID of the child agent session." }),
     }),
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
       const session = manager.getSession(params.id);
       if (!session) return { content: [{ type: "text", text: `Error: Child session ${params.id} not found.` }], details: {} };
 
@@ -107,7 +120,7 @@ export default async function (pi: ExtensionAPI) {
         content: [{ type: "text", text: `Child Status:\nID: ${session.id}\nStatus: ${session.status}\nBackend: ${session.backendType}\nOS: ${session.osType}\nStarted: ${new Date(session.startTime).toLocaleString()}\nPID: ${session.pid || "N/A"}\nScratch: ${session.scratchPath}` }],
         details: {},
       };
-    },
+    }) as ToolHandler,
   });
 
   pi.registerTool({
@@ -117,7 +130,7 @@ export default async function (pi: ExtensionAPI) {
     parameters: Type.Object({
       id: Type.String({ description: "The ID of the child agent session." }),
     }),
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
       try {
         const logs = await manager.readLog(params.id);
         return {
@@ -130,7 +143,7 @@ export default async function (pi: ExtensionAPI) {
           details: {},
         };
       }
-    },
+    }) as ToolHandler,
   });
 
   pi.registerTool({
@@ -140,7 +153,7 @@ export default async function (pi: ExtensionAPI) {
     parameters: Type.Object({
       id: Type.String({ description: "The ID of the child agent session." }),
     }),
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
       try {
         await manager.stopSession(params.id);
         return {
@@ -153,7 +166,7 @@ export default async function (pi: ExtensionAPI) {
           details: {},
         };
       }
-    },
+    }) as ToolHandler,
   });
 
   pi.registerTool({
@@ -163,7 +176,7 @@ export default async function (pi: ExtensionAPI) {
     parameters: Type.Object({
       id: Type.String({ description: "The ID of the child agent session." }),
     }),
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
       try {
         const logs = await manager.readLog(params.id);
         await manager.stopSession(params.id);
@@ -177,7 +190,7 @@ export default async function (pi: ExtensionAPI) {
           details: {},
         };
       }
-    },
+    }) as ToolHandler,
   });
 
   pi.registerTool({
@@ -185,7 +198,7 @@ export default async function (pi: ExtensionAPI) {
     label: "List Child Agents",
     description: "Lists all currently tracked child agent sessions.",
     parameters: Type.Object({}),
-    async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+    execute: (async (_toolCallId, _params, _signal, _onUpdate, ctx): Promise<any> => {
       const sessions = manager.listSessions();
       if (sessions.length === 0) return { content: [{ type: "text", text: "No active child agents." }], details: {} };
 
@@ -194,7 +207,7 @@ export default async function (pi: ExtensionAPI) {
         content: [{ type: "text", text: `Active Child Agents:\n${list}` }],
         details: {},
       };
-    },
+    }) as ToolHandler,
   });
 
   pi.registerTool({
@@ -202,7 +215,7 @@ export default async function (pi: ExtensionAPI) {
     label: "Cleanup Child Agents",
     description: "Stops all active child agents and cleans up their resources.",
     parameters: Type.Object({}),
-    async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+    execute: (async (_toolCallId, _params, _signal, _onUpdate, ctx): Promise<any> => {
       try {
         await manager.cleanupAll();
         return {
@@ -215,14 +228,14 @@ export default async function (pi: ExtensionAPI) {
           details: {},
         };
       }
-    },
+    }) as ToolHandler,
   });
 
   // --- Commands ---
 
   pi.registerCommand("child-create", {
     description: "Create a child agent (Usage: /child-create <scratchPath> [backendMode])",
-    handler: async (args, ctx) => {
+    handler: (async (args: string, ctx): Promise<void> => {
       const parts = args ? args.split(" ") : [];
       const scratchPath = parts[0];
       const mode = parts[1] || "auto";
@@ -240,14 +253,14 @@ export default async function (pi: ExtensionAPI) {
       } catch (e: any) {
         ctx.ui.notify(`Error: ${e.message}`, "error");
       }
-    },
+    }) as CommandHandler,
   });
 
-  pi.on("session_start", async (_event, ctx) => {
+  pi.on("session_start", async (_event: any, ctx: any) => {
     ctx.ui.notify("Pi Child Agent extension loaded.", "info");
   });
 
-  pi.on("session_shutdown", async (_event, ctx) => {
+  pi.on("session_shutdown", async (_event: any, ctx: any) => {
     await manager.cleanupAll();
   });
 }
