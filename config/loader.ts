@@ -3,6 +3,11 @@ import path from "node:path";
 export type BackendMode = "auto" | "tmux" | "windows-native" | "docker" | "podman" | "local-shell";
 
 export interface ChildAgentConfig {
+  queueEnabled: boolean;
+  maxConcurrentTasks: number;
+  defaultTaskMaxAttempts: number;
+  cleanupTaskChildren: boolean;
+  taskResultStructured: boolean;
   policyMode: "strict" | "standard" | "trusted";
   backendMode: BackendMode;
   defaultShell: string;
@@ -17,6 +22,11 @@ export interface ChildAgentConfig {
 }
 
 const DEFAULT_CONFIG: ChildAgentConfig = {
+  queueEnabled: true,
+  maxConcurrentTasks: 2,
+  defaultTaskMaxAttempts: 1,
+  cleanupTaskChildren: true,
+  taskResultStructured: true,
   policyMode: "standard",
   backendMode: "auto",
   defaultShell: "", // Determined by OS

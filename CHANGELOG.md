@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.11 (2026-07-02)
+
+### Task Queue Mode
+
+- **In-memory Task Queue**: Added ability to enqueue multiple tasks with priority and retry logic.
+- **Concurrency Control**: Implemented `maxConcurrentTasks` to prevent system overload.
+- **Sentinel-based Tracking**: Added specific markers (`PICA_TASK_DONE`) for precise task completion detection.
+- **New Toolset**: Added 6 new queue-management tools (`enqueue`, `start`, `status`, `cancel`, `collect`, `clear`).
+- **Structured Queue Results**: Integrated structured result extraction into the queue collection workflow.
+- **Queue Tests**: Added comprehensive test suite for priority, concurrency, and retry behavior.
+
 ## 0.1.10 (2026-07-02)
 
 ### Security Policies and Structured Collection

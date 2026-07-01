@@ -10,7 +10,7 @@ pi install npm:pi-child-agent
 
 ## Tools
 
-The extension registers eight tools callable by the parent LLM agent:
+The extension registers fourteen tools callable by the parent LLM agent:
 
 | Tool | Description |
 |------|-------------|
@@ -22,6 +22,12 @@ The extension registers eight tools callable by the parent LLM agent:
 | `child_agent_stop` | Stops a running child agent and cleans up its resources |
 | `child_agent_list` | Lists all currently tracked child agent sessions |
 | `child_agent_cleanup` | Stops all active child agents and cleans up resources |
+| `child_agent_enqueue` | Adds a task to the delegated queue for asynchronous execution |
+| `child_agent_queue_start` | Starts processing the delegated task queue |
+| `child_agent_queue_status` | Retrieves the current status of the task queue and a list of tasks |
+| `child_agent_queue_cancel` | Cancels a queued or running task |
+| `child_agent_queue_collect` | Collects structured results for a task or all completed tasks |
+| `child_agent_queue_clear` | Clears completed, canceled, or failed tasks from history |
 
 ## Commands
 
@@ -79,12 +85,37 @@ The extension uses a policy-based security system to control child agent capabil
 | `maxLogSize` | number | `10485760` | Max log file size in bytes (10 MB) |
 | `maxSimultaneousChildren` | number | `5` | Limit of concurrent child sessions |
 | `secretForwarding` | boolean | `false` | Forward API keys/tokens to child (disabled by default) |
+| `queueEnabled` | boolean | `true` | Enable the delegated task queue system |
+| `maxConcurrentTasks` | number | `2` | Max tasks to run simultaneously in the queue |
+| `defaultTaskMaxAttempts` | number | `1` | Default retry attempts for failed tasks |
+| `cleanupTaskChildren` | boolean | `true` | Stop child sessions automatically after task completion |
+| `taskResultStructured` | boolean | `true` | Use structured extraction for queue results |
+
+## Task Queue Mode
+
+The extension includes a **Delegated Task Queue** that allows the parent agent to enqueue multiple tasks and process them asynchronously. This is ideal for batch operations like auditing multiple files or running a sequence of independent scripts.
+
+### Queue Lifecycle
+1. **Enqueue**: Add tasks with titles, commands, and priority (`low`, `normal`, `high`).
+2. **Start**: Begin processing. The queue respects `maxConcurrentTasks`.
+3. **Monitor**: Use `child_agent_queue_status` to track progress.
+4. **Collect**: Retrieve structured results from completed tasks.
+5. **Cleanup**: Clear history using `child_agent_queue_clear`.
+
+### Example Workflow
+```
+child_agent_enqueue({ title: "Audit Auth", command: "node audit-auth.js" })
+child_agent_enqueue({ title: "Audit DB", command: "node audit-db.js", priority: "high" })
+child_agent_queue_start({ maxConcurrentTasks: 2 })
+child_agent_queue_status({ includeCompleted: true })
+child_agent_queue_collect({ allCompleted: true })
+```
 
 ## Verification Status
 
 | Capability | Status | Notes |
 |------------|--------|-------|
-| **Build & validation** | ✅ Verified | `tsc` zero errors; tool schema validates 8/8 tools |
+| **Build & validation** | ✅ Verified | `tsc` zero errors; tool schema validates 14/14 tools |
 | **Windows native backend** | ✅ Verified | 44-assertion smoke test + 23-assertion live workflow pass |
 | **Phase 2 hardening** | ✅ Verified | 15/15 assertions pass |
 | **Crash recovery** | ✅ Verified | 20/20 assertions pass |
@@ -93,6 +124,7 @@ The extension uses a policy-based security system to control child agent capabil
 | **Secret scrubbing** | ✅ Verified | API keys/tokens removed from child env |
 | **High-risk command detection** | ✅ Verified | Dangerous commands detected |
 | **Timeout enforcement** | ✅ Verified | Manager-side timeout auto-stops children |
+| **Task Queue Mode** | ✅ Verified | 8/8 core queue scenarios pass |
 | **Container mode** | ⚠ Implemented, SKIPPED locally | Docker/Podman not installed |
 | **Autonomous LLM orchestration** | ⏸ Requires provider quota | 429 rate limit blocks LLM-driven workflow |
 | **Interactive CLI tools** | ❌ Not implemented | No PTY support documented in `docs/pty-research.md` |

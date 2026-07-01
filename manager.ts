@@ -6,6 +6,7 @@ import { SecurityGuard } from "./security/guard.js";
 import { resolvePolicy } from "./security/policy.js";
 import { Logger } from "./utils/logging.js";
 import { collectStructuredResult, StructuredResult } from "./utils/structuredCollect.js";
+import { QueueManager } from "./queue/queueManager.js";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -30,6 +31,7 @@ export class ChildSessionManager {
   public guard: SecurityGuard;
   private logger: Logger;
   private baseDir: string;
+  public queue: QueueManager;
 
   constructor(private pi: ExtensionAPI) {
     this.config = new ConfigLoader();
@@ -41,10 +43,39 @@ export class ChildSessionManager {
 
     this.baseDir = tmpRoot;
     this.logger = new Logger(path.join(this.baseDir, "logs"));
+    this.queue = new QueueManager(this, this.guard);
   }
 
   async initialize(): Promise<void> {
     await this.logger.ensureDir();
+  }
+
+  async startQueue(maxConcurrent?: number) {
+    return await this.queue.startQueue(maxConcurrent);
+  }
+
+  async stopQueue() {
+    await this.queue.stopQueue();
+  }
+
+  async enqueueTask(data: any) {
+    return await this.queue.enqueue(data);
+  }
+
+  async getQueueStatus() {
+    return this.queue.getQueueStatus();
+  }
+
+  async cancelTask(id: string) {
+    return await this.queue.cancelTask(id);
+  }
+
+  async collectTaskResult(id: string) {
+    return await this.queue.collectTaskResult(id);
+  }
+
+  async clearQueue(options: any) {
+    return this.queue.clearCompleted(options);
   }
 
   async createSession(backend: SessionBackend, scratchPath: string, logPath: string): Promise<ChildSession> {

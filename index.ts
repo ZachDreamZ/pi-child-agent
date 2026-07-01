@@ -29,6 +29,154 @@ export default async function (pi: ExtensionAPI) {
   // --- Tools ---
 
   pi.registerTool({
+    name: "child_agent_enqueue",
+    label: "Enqueue Child Task",
+    description: "Adds a task to the delegated queue for asynchronous execution.",
+    parameters: Type.Object({
+      title: Type.String({ description: "Short descriptive title for the task." }),
+      command: Type.String({ description: "The command to execute." }),
+      priority: Type.Optional(Type.String({ description: "Priority: low, normal, high. Default: normal." })),
+      maxAttempts: Type.Optional(Type.Number({ description: "Max retry attempts. Default: 1." })),
+      timeoutMs: Type.Optional(Type.Number({ description: "Task-specific timeout in ms." })),
+      policyMode: Type.Optional(Type.String({ description: "Policy mode: strict, standard, trusted. Default: standard." })),
+    }),
+    execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
+      try {
+        const task = await manager.enqueueTask(params);
+        return {
+          content: [{ type: "text", text: `### 📥 Task Enqueued\n\n**Task ID**: \`${task.id}\`\n**Title**: ${task.title}\n**Status**: \`${task.status}\`\n\nUse \`child_agent_queue_start\` to begin processing.` }],
+          details: { success: true, taskId: task.id, status: task.status },
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `❌ **Failed to enqueue task**: ${e.message}` }], details: { success: false } };
+      }
+    }) as ToolHandler,
+  });
+
+  pi.registerTool({
+    name: "child_agent_queue_start",
+    label: "Start Task Queue",
+    description: "Starts processing the delegated task queue.",
+    parameters: Type.Object({
+      maxConcurrentTasks: Type.Optional(Type.Number({ description: "Maximum concurrent tasks to run." })),
+    }),
+    execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
+      try {
+        const status = await manager.startQueue(params.maxConcurrentTasks);
+        return {
+          content: [{ type: "text", text: `### ⚙️ Queue Started\n\n**Running**: ${status.running}\n**Queued**: ${status.queued}\n**Active Tasks**: ${status.runningTasks}` }],
+          details: status,
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `❌ **Failed to start queue**: ${e.message}` }], details: { success: false } };
+      }
+    }) as ToolHandler,
+  });
+
+  pi.registerTool({
+    name: "child_agent_queue_status",
+    label: "Queue Status",
+    description: "Retrieves the current status of the task queue and a list of tasks.",
+    parameters: Type.Object({
+      includeCompleted: Type.Optional(Type.Boolean({ description: "Whether to include completed/failed tasks. Default: false." })),
+    }),
+    execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
+      try {
+        const status = await manager.getQueueStatus();
+        const tasks = await manager.queue.listTasks({ includeCompleted: params.includeCompleted ?? false });
+        
+        let table = `### 📋 Queue Status\n\n**Active**: ${status.running} | **Queued**: ${status.queued} | **Running**: ${status.runningTasks} | **Succeeded**: ${status.succeeded} | **Failed**: ${status.failed}\n\n`;
+        if (tasks.length > 0) {
+          table += `| ID | Title | Status | Priority |\n|---|---|---|---|\n`;
+          for (const t of tasks) {
+            table += `| \`${t.id}\` | ${t.title} | \`${t.status}\` | ${t.priority} |\n`;
+          }
+        } else {
+          table += "_No tasks matching criteria._";
+        }
+
+        return {
+          content: [{ type: "text", text: table }],
+          details: { ...status, tasks },
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `❌ **Failed to get queue status**: ${e.message}` }], details: { success: false } };
+      }
+    }) as ToolHandler,
+  });
+
+  pi.registerTool({
+    name: "child_agent_queue_cancel",
+    label: "Cancel Queue Task",
+    description: "Cancels a queued or running task.",
+    parameters: Type.Object({
+      taskId: Type.String({ description: "The ID of the task to cancel." }),
+    }),
+    execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
+      try {
+        await manager.cancelTask(params.taskId);
+        return {
+          content: [{ type: "text", text: `### 🛑 Task Canceled\n\nTask \`${params.taskId}\` has been canceled.` }],
+          details: { success: true, taskId: params.taskId, status: "canceled" },
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `❌ **Failed to cancel task**: ${e.message}` }], details: { success: false } };
+      }
+    }) as ToolHandler,
+  });
+
+  pi.registerTool({
+    name: "child_agent_queue_collect",
+    label: "Collect Queue Results",
+    description: "Collects structured results for a specific task or all completed tasks.",
+    parameters: Type.Object({
+      taskId: Type.Optional(Type.String({ description: "The ID of the task to collect results for." })),
+      allCompleted: Type.Optional(Type.Boolean({ description: "Collect results for all completed tasks. Default: false." })),
+    }),
+    execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
+      try {
+        const completed = await manager.queue.listTasks({ status: ["succeeded", "failed", "timed_out", "canceled"], includeCompleted: true });
+        let report = `### 📦 Batch Results (${completed.length} tasks)\n\n`;
+        for (const t of completed) {
+          report += `- \`${t.id}\` (${t.title}): \`${t.status}\`\n`;
+        }
+        return {
+          content: [{ type: "text", text: report }],
+          details: { success: true, tasks: completed },
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `❌ **Failed to collect queue result**: ${e.message}` }], details: { success: false } };
+      }
+    }) as ToolHandler,
+  });
+
+  pi.registerTool({
+    name: "child_agent_queue_clear",
+    label: "Clear Queue History",
+    description: "Clears completed, canceled, or failed tasks from the queue history.",
+    parameters: Type.Object({
+      includeSucceeded: Type.Optional(Type.Boolean({ description: "Clear succeeded tasks. Default: true." })),
+      includeFailed: Type.Optional(Type.Boolean({ description: "Clear failed/timed_out tasks. Default: false." })),
+      includeCanceled: Type.Optional(Type.Boolean({ description: "Clear canceled tasks. Default: true." })),
+    }),
+    execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
+      try {
+        const removed = manager.clearQueue({
+          includeSucceeded: params.includeSucceeded ?? true,
+          includeFailed: params.includeFailed ?? false,
+          includeCanceled: params.includeCanceled ?? true,
+        });
+        return {
+          content: [{ type: "text", text: `### 🧹 Queue Cleared\n\nRemoved ${removed} tasks from history.` }],
+          details: { success: true, removed },
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `❌ **Failed to clear queue**: ${e.message}` }], details: { success: false } };
+      }
+    }) as ToolHandler,
+  });
+
+  pi.registerTool({
     name: "child_agent_create",
     label: "Create Child Agent",
     description: "Creates an isolated child agent session with a specified backend.",
