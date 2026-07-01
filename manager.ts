@@ -3,7 +3,9 @@ import { SessionBackend } from "./backends/base.js";
 import { isWindows, getOSType } from "./utils/os.js";
 import { ConfigLoader } from "./config/loader.js";
 import { SecurityGuard } from "./security/guard.js";
+import { resolvePolicy } from "./security/policy.js";
 import { Logger } from "./utils/logging.js";
+import { collectStructuredResult, StructuredResult } from "./utils/structuredCollect.js";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -25,13 +27,13 @@ export interface ChildSession {
 export class ChildSessionManager {
   private sessions: Map<string, ChildSession> = new Map();
   public config: ConfigLoader;
-  private guard: SecurityGuard;
+  public guard: SecurityGuard;
   private logger: Logger;
   private baseDir: string;
 
   constructor(private pi: ExtensionAPI) {
     this.config = new ConfigLoader();
-    this.guard = new SecurityGuard(this.config.get("protectedPaths"));
+    this.guard = new SecurityGuard(resolvePolicy(this.config.getConfig()));
     
     const tmpRoot = process.platform === 'win32' 
       ? path.join("C:\\Users\\Public", "pi-child-agent") 
@@ -168,9 +170,17 @@ export class ChildSessionManager {
       .replace(/\[PICA_DONE\]$/g, "✅ **Done**");
   }
 
-  async collect(id: string): Promise<string> {
+  async collect(id: string, structured = false): Promise<string | StructuredResult> {
+    const session = this.getSession(id);
+    if (!session) throw new Error(`Session ${id} not found`);
+
     const logs = await this.readLog(id);
     await this.stopSession(id);
+
+    if (structured) {
+      return collectStructuredResult(session, logs);
+    }
+
     return logs;
   }
 

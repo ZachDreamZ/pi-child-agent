@@ -3,6 +3,7 @@ import path from "node:path";
 export type BackendMode = "auto" | "tmux" | "windows-native" | "docker" | "podman" | "local-shell";
 
 export interface ChildAgentConfig {
+  policyMode: "strict" | "standard" | "trusted";
   backendMode: BackendMode;
   defaultShell: string;
   maxRuntime: number; // in milliseconds
@@ -16,6 +17,7 @@ export interface ChildAgentConfig {
 }
 
 const DEFAULT_CONFIG: ChildAgentConfig = {
+  policyMode: "standard",
   backendMode: "auto",
   defaultShell: "", // Determined by OS
   maxRuntime: 3600000, // 1 hour

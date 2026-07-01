@@ -85,15 +85,49 @@ export default async function (pi: ExtensionAPI) {
       if (!session) return { content: [{ type: "text", text: `Error: Child session ${params.id} not found.` }], details: {} };
       if (session.status !== "running") return { content: [{ type: "text", text: `Error: Child session ${params.id} is not running (Status: ${session.status}).` }], details: {} };
 
-      // Security Check: Require approval for high-risk commands
-      const guard = new SecurityGuard(manager.config.get("protectedPaths"));
-      if (guard.isHighRiskCommand(params.command)) {
-        const approved = await ctx.ui.confirm(
-          "High-Risk Command Detected",
-          `The command "${params.command}" is flagged as high-risk. Do you want to allow the child agent to execute this?`
-        );
-        if (!approved) {
-          return { content: [{ type: "text", text: "Command blocked: User denied execution of high-risk command." }], details: {} };
+      // Security Check: Evaluate command through Policy system
+      const decision = manager.guard.checkCommand(params.command);
+      const policyMode = manager.config.get("policyMode");
+
+      if (!decision.allowed) {
+        if (decision.requiresApproval) {
+          const approved = await ctx.ui.confirm(
+            `${decision.category.toUpperCase()} Command Detected`,
+            `The command "${params.command}" is flagged as ${decision.severity} risk.\n\n**Reason**: ${decision.reason}\n**Policy**: ${policyMode}\n\nDo you want to allow this execution?`
+          );
+          if (!approved) {
+            return { 
+              content: [{ type: "text", text: `Command blocked: User denied ${decision.category} command.` }], 
+              details: {
+                success: false,
+                sent: false,
+                blocked: true,
+                approved: false,
+                policyMode,
+                category: decision.category,
+                severity: decision.severity,
+                reason: decision.reason,
+                childId: params.id,
+                command: params.command
+              }
+            };
+          }
+        } else {
+          return { 
+            content: [{ type: "text", text: `❌ **Blocked**: ${decision.reason}` }], 
+            details: {
+              success: false,
+              sent: false,
+              blocked: true,
+              approved: false,
+              policyMode,
+              category: decision.category,
+              severity: decision.severity,
+              reason: decision.reason,
+              childId: params.id,
+              command: params.command
+            }
+          };
         }
       }
 
@@ -102,12 +136,34 @@ export default async function (pi: ExtensionAPI) {
         await session.backend.send(targetId, params.command);
         return {
           content: [{ type: "text", text: `Command sent to child agent ${params.id}.` }],
-          details: {},
+          details: {
+            success: true,
+            sent: true,
+            blocked: false,
+            approved: decision.requiresApproval,
+            policyMode,
+            category: decision.category,
+            severity: decision.severity,
+            reason: decision.reason,
+            childId: params.id,
+            command: params.command
+          },
         };
       } catch (e: any) {
         return {
           content: [{ type: "text", text: `Failed to send command: ${e.message}` }],
-          details: {},
+          details: {
+            success: false,
+            sent: false,
+            blocked: false,
+            approved: false,
+            policyMode,
+            category: decision.category,
+            severity: decision.severity,
+            reason: e.message,
+            childId: params.id,
+            command: params.command
+          },
         };
       }
     }) as ToolHandler,
@@ -181,13 +237,33 @@ export default async function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "child_agent_collect",
     label: "Collect Child Result",
-    description: "Reads the final output of a child agent and stops it.",
+    description: "Reads the final output of a child agent and stops it. Optionally returns a structured summary.",
     parameters: Type.Object({
       id: Type.String({ description: "The ID of the child agent session." }),
+      structured: Type.Optional(Type.Boolean({ description: "Whether to return a structured result instead of raw logs. Defaults to false." })),
     }),
     execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
       try {
-        const logs = await manager.collect(params.id);
+        const result = await manager.collect(params.id, params.structured);
+        
+        if (params.structured && typeof result !== "string") {
+          // Return structured result as a formatted Markdown table/list in content
+          const s = result as any;
+          const summary = `### ✅ Structured Result: \`${s.childId}\`\n\n` +
+            `**Status**: ${s.status} | **Timed Out**: ${s.timedOut}\n` +
+            `**Summary**: ${s.summary}\n\n` +
+            `**Errors**: ${s.errors.length} | **Warnings**: ${s.warnings.length}\n` +
+            `**Files Mentioned**: ${s.filesMentioned.join(", ") || "None"}\n` +
+            `**Commands Run**: ${s.commandsRun.length}\n\n` +
+            `**Log Path**: \`${s.logPath}\``;
+
+          return {
+            content: [{ type: "text", text: summary }],
+            details: s,
+          };
+        }
+
+        const logs = result as string;
         const formattedLogs = manager.formatLogs(logs);
         return {
           content: [{ type: "text", text: `### ✅ Result Collected\n\nChild agent \`${params.id}\` has been stopped.\n\n**Final Output**:\n\`\`\`text\n${formattedLogs}\n\`\`\`` }],

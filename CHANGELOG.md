@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.10 (2026-07-02)
+
+### Security Policies and Structured Collection
+
+- **Configurable Security Policies**: Added `strict`, `standard`, and `trusted` modes for fine-grained control over workspace write, network, and package install permissions.
+- **Structured Collect Output**: `child_agent_collect` now supports `structured: true` to return deterministic summaries, error/warning lists, and file mentions.
+- **Improved Approval Behavior**: Integrated policy decisions into `child_agent_send` with rich UI confirmation prompts and categorized risk levels.
+- **New Test Suites**: Added `tests/security-policy.ts` and `tests/structured-collect.ts`.
+
 ## 0.1.0 (2026-07-01)
 
 ### Initial Release

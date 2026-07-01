@@ -12,6 +12,7 @@
 import { WindowsNativeBackend } from "../backends/windows.js";
 import { ChildSessionManager } from "../manager.js";
 import { SecurityGuard } from "../security/guard.js";
+import { resolvePolicy } from "../security/policy.js";
 import { BackendFactory } from "../backends/factory.js";
 import { isWindows } from "../utils/os.js";
 import path from "node:path";
@@ -143,7 +144,7 @@ async function main(): Promise<void> {
   // ── 12: Protected path blocking ─────────────────────────────────────────
   console.log("[12] Protected Windows path command is blocked");
 
-  const guard = new SecurityGuard(manager.config.get("protectedPaths"));
+  const guard = new SecurityGuard(resolvePolicy(manager.config.getConfig()));
   assert("C:\\Windows is protected", guard.isPathProtected("C:\\Windows"));
   assert("C:\\Program Files is protected", guard.isPathProtected("C:\\Program Files"));
   assert("C:\\Program Files (x86) is protected", guard.isPathProtected("C:\\Program Files (x86)"));
@@ -154,10 +155,10 @@ async function main(): Promise<void> {
   // ── 13: High-risk command detection ─────────────────────────────────────
   console.log("[13] High-risk command triggers approval flow (detection)");
 
-  assert("rm -rf / is high-risk", guard.isHighRiskCommand("rm -rf /"));
-  assert("format is high-risk", guard.isHighRiskCommand("format D:"));
-  assert("Set-ExecutionPolicy is high-risk", guard.isHighRiskCommand("Set-ExecutionPolicy Unrestricted"));
-  assert("echo hello is NOT high-risk", !guard.isHighRiskCommand("echo hello"));
+  assert("rm -rf / is high-risk", guard.checkCommand("rm -rf /").severity === "critical");
+  assert("format is high-risk", guard.checkCommand("format D:").severity === "critical");
+  assert("Set-ExecutionPolicy is high-risk", guard.checkCommand("Set-ExecutionPolicy Unrestricted").severity === "high");
+  assert("echo hello is NOT high-risk", guard.checkCommand("echo hello").severity === "low");
   console.log();
 
   // ── 14: Secret environment scrubbing ────────────────────────────────────

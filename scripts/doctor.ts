@@ -21,6 +21,7 @@ import { execSync } from "node:child_process";
 import { isWindows, getOSType } from "../utils/os.js";
 import { SecurityGuard } from "../security/guard.js";
 import { ConfigLoader } from "../config/loader.js";
+import { resolvePolicy } from "../security/policy.js";
 import { BackendFactory } from "../backends/factory.js";
 
 interface CheckResult {
@@ -180,7 +181,7 @@ async function main(): Promise<void> {
 
   // ── Security Tests ────────────────────────────────────────────────────────
   const config = new ConfigLoader();
-  const guard = new SecurityGuard(config.get("protectedPaths"));
+  const guard = new SecurityGuard(resolvePolicy(config.getConfig()));
 
   check("protected path: C:\\Windows", () => {
     if (!guard.isPathProtected("C:\\Windows")) throw new Error("NOT PROTECTED");

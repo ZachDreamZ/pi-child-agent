@@ -18,7 +18,7 @@ The extension registers eight tools callable by the parent LLM agent:
 | `child_agent_send` | Sends a command or task to a running child agent |
 | `child_agent_status` | Retrieves the current status and metadata of a child agent |
 | `child_agent_read` | Reads the current output/logs from a child agent |
-| `child_agent_collect` | Reads the final output of a child agent and stops it |
+| `child_agent_collect` | Reads the final output of a child agent and stops it. Supports structured result extraction |
 | `child_agent_stop` | Stops a running child agent and cleans up its resources |
 | `child_agent_list` | Lists all currently tracked child agent sessions |
 | `child_agent_cleanup` | Stops all active child agents and cleans up resources |
@@ -50,6 +50,25 @@ Windows native mode provides **process isolation**, not a security sandbox. Cont
 - **Secret Scrubbing**: Child process environment is stripped of sensitive variables unless `secretForwarding` is enabled.
 - **Process Cleanup**: Full process tree killed (Windows: `taskkill /T /F`; Unix: process group).
 - **No `Invoke-Expression`**: Windows commands dispatched through `cmd /c`, never PowerShell `iex`.
+
+### Security Policies
+
+The extension uses a policy-based security system to control child agent capabilities.
+
+| Mode | Workspace Write | Package Install | Git Write | Network | Protected Paths |
+|---|---|---|---|---|---|
+| `strict` | ❌ | ⚠ Approval | ⚠ Approval | ❌ | 🚫 Blocked |
+| `standard` (Default) | ❌ | ⚠ Approval | ⚠ Approval | ✅ Allowed | 🚫 Blocked |
+| `trusted` | ✅ Allowed | ✅ Allowed | ✅ Allowed | ✅ Allowed | 🚫 Blocked |
+
+**Example Config**:
+```json
+{
+  "policyMode": "strict",
+  "allowNetworkCommands": true,
+  "requireApprovalForHighRisk": true
+}
+```
 
 ## Configuration
 
