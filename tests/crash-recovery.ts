@@ -2,14 +2,16 @@
 /**
  * pi-child-agent — Crash Recovery Tests.
  *
- * Scenarios:
- *  1. child process exits unexpectedly
- *  2. child process is already dead when stop is called
- *  3. log file is missing
- *  4. scratch directory is missing
- *  5. cleanup is called twice
- *  6. send is called after stop
- *  7. read is called after cleanup
+ * Unique purpose (not covered by live-workflow.ts):
+ *  1. Child process exits unexpectedly
+ *  2. Child process already dead when stop is called
+ *  3. Log file is missing
+ *  4. Scratch directory is missing
+ *  5. Cleanup called twice (idempotent)
+ *  6. Send called after stop
+ *  7. Read called after cleanup
+ *
+ * Uses sentinel-based waiting — minimal fixed delays.
  */
 
 import { ChildSessionManager } from "../manager.js";
@@ -18,7 +20,8 @@ import { WindowsNativeBackend } from "../backends/windows.js";
 import { isWindows } from "../utils/os.js";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { spawn } from "node:child_process";
+import { sendAndWait, waitForLog } from "./helpers/waitForLog.js";
+import { TIME } from "./helpers/timing.js";
 
 const mockPi: any = { registerTool: () => {}, registerCommand: () => {}, on: () => {} };
 
@@ -31,8 +34,6 @@ function assert(label: string, condition: boolean, detail?: string): void {
   if (condition) { passed++; console.log(`  ✓ ${label}`); }
   else { failed++; const msg = detail || "assertion failed"; failures.push(`${label}: ${msg}`); console.log(`  ✗ ${label} — ${msg}`); }
 }
-
-function sleep(ms: number): Promise<void> { return new Promise(r => setTimeout(r, ms)); }
 
 async function main(): Promise<void> {
   if (!isWindows()) { console.log("Crash recovery tests require Windows. Skipping."); return; }
@@ -58,17 +59,21 @@ async function main(): Promise<void> {
   const { session: s1, logPath: lp1 } = await makeSession("unexpected-exit");
   assert("session created", s1.status === "running");
 
-  // Kill the backend process externally
+  // Kill the backend process externally via backend.stop (which kills the process)
   const targetId = s1.pid!.toString();
   const backend = s1.backend as WindowsNativeBackend;
-  await backend.stop(targetId);  // This kills the process
+  await backend.stop(targetId);
 
-  // Now the process is dead. Check isAlive.
-  await sleep(500);
-  const alive = await backend.isAlive(targetId);
-  assert("child is reported as dead after external kill", !alive);
+  // Poll for the process to die instead of a fixed sleep
+  const start1 = Date.now();
+  let alive1 = true;
+  while (Date.now() - start1 < TIME.STOP) {
+    alive1 = await backend.isAlive(targetId);
+    if (!alive1) break;
+    await new Promise(r => setTimeout(r, 50));
+  }
+  assert("child is reported as dead after external kill", !alive1);
 
-  // Clean up the manager (stop should handle already-dead process gracefully)
   try {
     await manager.stopSession(s1.id);
     assert("stopSession handled already-dead process", s1.status === "stopped");
@@ -77,17 +82,15 @@ async function main(): Promise<void> {
   }
   console.log();
 
-  // ── 2. Child process is already dead when stop is called ────────────────
+  // ── 2. Child process already dead when stop is called ───────────────────
   console.log("[2] Child process already dead when stop is called");
 
   const { session: s2 } = await makeSession("already-dead");
   assert("session 2 created", s2.status === "running");
 
-  // Kill through manager
   await manager.stopSession(s2.id);
   assert("first stop succeeds", s2.status === "stopped");
 
-  // Second stop should be idempotent
   try {
     await manager.stopSession(s2.id);
     assert("second stop is idempotent (no throw)", true);
@@ -102,11 +105,9 @@ async function main(): Promise<void> {
   const { session: s3, logPath: lp3 } = await makeSession("missing-log");
   assert("session 3 created", s3.status === "running");
 
-  // Delete the log file while the session is alive
   try { await fs.unlink(lp3); } catch {}
   assert("log file deleted externally", await fs.stat(lp3).then(() => false).catch(() => true));
 
-  // readLog should throw a clear error
   try {
     await manager.readLog(s3.id);
     assert("readLog when log is missing should throw", false, "no error thrown");
@@ -114,7 +115,6 @@ async function main(): Promise<void> {
     assert(`readLog throws when log missing: "${e.message}"`, true);
   }
 
-  // Stop the session
   await manager.stopSession(s3.id);
   console.log();
 
@@ -131,11 +131,9 @@ async function main(): Promise<void> {
     const session4 = await manager.createSession(backend4, missingDir, logPath4);
     assert("session created with valid scratch dir", session4.status === "running");
 
-    // Delete scratch dir while session is running
     await fs.rm(missingDir, { recursive: true, force: true });
     assert("scratch dir deleted externally", await fs.stat(missingDir).then(() => false).catch(() => true));
 
-    // Session should still be manageable
     const stillAlive = await backend4.isAlive(session4.pid!.toString());
     assert("session manageable after scratch dir removed", stillAlive === true || stillAlive === false);
 
@@ -155,7 +153,6 @@ async function main(): Promise<void> {
   await manager.cleanupAll();
   assert("first cleanupAll succeeds", manager.listSessions().length === 0);
 
-  // Second cleanup should be idempotent
   try {
     await manager.cleanupAll();
     assert("second cleanupAll is idempotent (no throw)", true);
@@ -188,17 +185,15 @@ async function main(): Promise<void> {
   const { session: s7, logPath: lp7 } = await makeSession("read-after-cleanup");
   const backend7 = s7.backend as WindowsNativeBackend;
 
-  // Write something to log
-  await backend7.send(s7.pid!.toString(), "echo BEFORE_CLEANUP");
-  await sleep(500);
+  // Send a command and wait for it via sentinel (ensures log has content)
+  await sendAndWait(backend7, s7.pid!.toString(), lp7, "echo BEFORE_CLEANUP", TIME.CMD_OUTPUT);
 
   await manager.cleanupAll();
   assert("cleanupAll succeeded", manager.listSessions().length === 0);
 
-  // The session is removed, so readLog should throw "not found"
   try {
     await manager.readLog(s7.id);
-    assert("readLog after cleanup should throw Session not found", false, "no error thrown");
+    assert("readLog after cleanup should throw", false, "no error thrown");
   } catch (e: any) {
     assert(`readLog after cleanup throws: "${e.message}"`, e.message.includes("not found"));
   }
@@ -208,13 +203,8 @@ async function main(): Promise<void> {
   const total = passed + failed;
   console.log("═══════════════════════════════════════════");
   console.log(`Total: ${total}  |  Passed: ${passed}  |  Failed: ${failed}`);
-  if (failures.length > 0) {
-    console.log("\nFailures:");
-    failures.forEach(f => console.log(`  • ${f}`));
-    process.exit(1);
-  } else {
-    console.log("✅ CRASH RECOVERY TESTS PASSED");
-  }
+  if (failures.length > 0) { console.log("\nFailures:"); failures.forEach(f => console.log(`  • ${f}`)); process.exit(1); }
+  else { console.log("✅ CRASH RECOVERY TESTS PASSED"); }
 }
 
-main().catch(e => { console.error("Fatal:", e); process.exit(1); });
+main().catch((e) => { console.error("Fatal:", e); process.exit(1); });

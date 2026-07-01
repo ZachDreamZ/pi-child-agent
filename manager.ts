@@ -77,6 +77,10 @@ export class ChildSessionManager {
         const current = this.getSession(id);
         if (!current || current.status !== "running") return;
 
+        // Mark timed out FIRST so stopSession() sees it even if stop throws
+        current.timedOut = true;
+        current.status = "timed_out";
+
         try {
           // Log timeout reason
           await this.logger.write(
@@ -86,8 +90,6 @@ export class ChildSessionManager {
           // Stop the child
           const targetId = current.pid ? current.pid.toString() : id;
           await current.backend.stop(targetId);
-          current.status = "timed_out";
-          current.timedOut = true;
         } catch (e) {
           console.error(`Timeout handler failed for session ${id}:`, e);
         }

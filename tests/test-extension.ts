@@ -1,9 +1,18 @@
+#!/usr/bin/env tsx
+/**
+ * Quick self-test for pi-child-agent extension loading.
+ * Focuses on: backend selection, session lifecycle, path protection.
+ * Uses sentinel-based waiting (no fixed sleeps).
+ */
+
 import { ChildSessionManager } from "../manager.js";
 import { BackendFactory } from "../backends/factory.js";
 import { SecurityGuard } from "../security/guard.js";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs/promises";
+import { sendAndWait } from "./helpers/waitForLog.js";
+import { TIME } from "./helpers/timing.js";
 
 // Mock ExtensionAPI
 const mockPi = {
@@ -14,7 +23,7 @@ const mockPi = {
 
 async function runTests() {
   console.log("Starting pi-child-agent tests...");
-  
+
   const manager = new ChildSessionManager(mockPi as any);
   await manager.initialize();
 
@@ -33,18 +42,16 @@ async function runTests() {
     const session = await manager.createSession(backend, scratchDir, logPath);
     console.log(`- Session created: ${session.id} (Status: ${session.status})`);
 
-    // Test 3: Sending a command
+    // Test 3: Sending a command + waiting for output via sentinel
     console.log("\nTest 3: Sending command...");
     const targetId = session.pid ? session.pid.toString() : session.id;
-    await backend.send(targetId, "echo 'Hello from test'");
-    console.log("- Command sent.");
+    const logs = await sendAndWait(backend, targetId, logPath, "echo 'Hello from test'", TIME.CMD_OUTPUT);
+    console.log(`- Command sent and logs received (${logs.length} chars)`);
 
-    // Test 4: Reading logs
+    // Test 4: Reading logs (data already captured above)
     console.log("\nTest 4: Reading logs...");
-    // Give it a moment to write
-    await new Promise(r => setTimeout(r, 500));
-    const logs = await manager.readLog(session.id);
-    console.log(`- Logs read: ${logs || "Empty"}`);
+    const readLogs = await manager.readLog(session.id);
+    console.log(`- Logs read: ${readLogs || "Empty"}`);
 
     // Test 5: Path Protection
     console.log("\nTest 5: Path Protection...");

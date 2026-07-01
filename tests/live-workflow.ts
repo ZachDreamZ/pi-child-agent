@@ -1,12 +1,15 @@
 #!/usr/bin/env tsx
 /**
  * Live Pi tool-calling workflow test.
- * Runs the full parent-child workflow in a single process.
+ * Canonical full lifecycle: create→send→read→status→collect→stop→list→cleanup.
+ * Uses sentinel-based waiting — no fixed sleeps.
  */
 import { ChildSessionManager } from "../manager.js";
 import { BackendFactory } from "../backends/factory.js";
 import path from "node:path";
 import fs from "node:fs/promises";
+import { sendAndWait } from "./helpers/waitForLog.js";
+import { TIME } from "./helpers/timing.js";
 
 const mockPi: any = { registerTool: () => {}, registerCommand: () => {}, on: () => {} };
 
@@ -43,24 +46,25 @@ async function main(): Promise<void> {
   console.log(`     Backend: ${session.backendType}`);
   console.log();
 
-  // [2] Send first command
+  // [2] Send first command + wait via sentinel
   console.log("[2] child_agent_send: echo CHILD_AGENT_OK\n");
-  await backend.send(session.pid!.toString(), "echo CHILD_AGENT_OK");
-  // Wait for output to flush
-  await new Promise(r => setTimeout(r, 1500));
-
-  // [3] Read output
-  console.log("[3] child_agent_read\n");
-  let logContent = await manager.readLog(session.id);
-  assert("log content is non-empty", logContent.length > 0);
-  assert("log contains CHILD_AGENT_OK", logContent.includes("CHILD_AGENT_OK"), logContent);
+  const logContent = await sendAndWait(backend, session.pid!.toString(), logPath, "echo CHILD_AGENT_OK", TIME.CMD_OUTPUT);
+  assert("log content non-empty", logContent.length > 0);
+  assert("log contains CHILD_AGENT_OK", logContent.includes("CHILD_AGENT_OK"));
   console.log(`     Log preview: ${logContent.substring(0, 200)}`);
+  console.log();
+
+  // [3] Read output (data already retrieved via sentinel)
+  console.log("[3] child_agent_read\n");
+  const readContent = await manager.readLog(session.id);
+  assert("readLog returns content", readContent.length > 0);
   console.log();
 
   // [4] Send second command (prove persistence)
   console.log("[4] child_agent_send: echo SECOND_COMMAND_OK\n");
-  await backend.send(session.pid!.toString(), "echo SECOND_COMMAND_OK");
-  await new Promise(r => setTimeout(r, 1500));
+  const logContent2 = await sendAndWait(backend, session.pid!.toString(), logPath, "echo SECOND_COMMAND_OK", TIME.CMD_OUTPUT);
+  assert("log contains SECOND_COMMAND_OK", logContent2.includes("SECOND_COMMAND_OK"));
+  console.log();
 
   // [5] Status
   console.log("[5] child_agent_status\n");
@@ -75,17 +79,17 @@ async function main(): Promise<void> {
 
   // [6] Read again (should have both commands)
   console.log("[6] child_agent_read (after second command)\n");
-  logContent = await manager.readLog(session.id);
-  assert("log contains CHILD_AGENT_OK (persisted)", logContent.includes("CHILD_AGENT_OK"));
-  assert("log contains SECOND_COMMAND_OK", logContent.includes("SECOND_COMMAND_OK"));
-  console.log(`     Log preview: ${logContent.substring(0, 300)}`);
+  const fullLog = await manager.readLog(session.id);
+  assert("log contains CHILD_AGENT_OK (persisted)", fullLog.includes("CHILD_AGENT_OK"));
+  assert("log contains SECOND_COMMAND_OK", fullLog.includes("SECOND_COMMAND_OK"));
+  console.log(`     Log preview: ${fullLog.substring(0, 300)}`);
   console.log();
 
   // [7] Collect (read + stop)
   console.log("[7] child_agent_collect\n");
   const finalLog = await manager.readLog(session.id);
   await manager.stopSession(session.id);
-  assert("final log contains expected output", finalLog.includes("CHILD_AGENT_OK") && finalLog.includes("SECOND_COMMAND_OK"));
+  assert("final log has expected output", finalLog.includes("CHILD_AGENT_OK") && finalLog.includes("SECOND_COMMAND_OK"));
   assert("session stopped after collect", s.status === "stopped" || s.status === "timed_out");
   console.log();
 
@@ -125,4 +129,4 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch(e => { console.error("Fatal:", e); process.exit(1); });
+main().catch((e) => { console.error("Fatal:", e); process.exit(1); });

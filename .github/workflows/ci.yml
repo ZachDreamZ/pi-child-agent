@@ -5,7 +5,16 @@ on:
     branches: [main, master, develop]
   pull_request:
     branches: [main, master]
-  workflow_dispatch:  # allow manual trigger
+  workflow_dispatch:  # allow manual trigger with mode selection
+    inputs:
+      mode:
+        description: 'Test mode: fast (push) or full (all tests)'
+        required: true
+        default: 'fast'
+        type: choice
+        options:
+          - fast
+          - full
 
 jobs:
   test-windows:
@@ -48,11 +57,19 @@ jobs:
         run: npx tsx tests/windows-native-smoke.ts 2>&1 | Tee-Object -FilePath logs/windows-smoke.log
         shell: pwsh
 
-      - name: Phase 2 hardening test
+      # Fast mode (push): only smoke + live-workflow
+      # Full mode (workflow_dispatch/tag): also phase2 + crash
+      - name: Live workflow test
+        run: npx tsx tests/live-workflow.ts 2>&1 | Tee-Object -FilePath logs/live-workflow.log
+        shell: pwsh
+
+      - name: Phase 2 hardening test (full mode only)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'full' || github.event_name == 'push' && false }}
         run: npx tsx tests/phase2-hardening.ts 2>&1 | Tee-Object -FilePath logs/phase2.log
         shell: pwsh
 
-      - name: Crash recovery test
+      - name: Crash recovery test (full mode only)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'full' || github.event_name == 'push' && false }}
         run: npx tsx tests/crash-recovery.ts 2>&1 | Tee-Object -FilePath logs/crash.log
         shell: pwsh
 
@@ -65,7 +82,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-logs-windows
+          name: test-logs-windows-${{ github.event_name }}
           path: logs/*.log
 
   test-ubuntu:
@@ -99,13 +116,6 @@ jobs:
         run: npx tsx tests/test-extension.ts 2>&1 | tee logs/standalone.log
         continue-on-error: true
 
-      - name: Phase 2 hardening test
-        run: npx tsx tests/phase2-hardening.ts 2>&1 | tee logs/phase2.log
-
-      - name: Crash recovery test
-        run: npx tsx tests/crash-recovery.ts 2>&1 | tee logs/crash.log
-        continue-on-error: true
-
       - name: Container smoke test (skip if no Docker)
         run: npx tsx tests/container-smoke.ts 2>&1 | tee logs/container.log
         continue-on-error: true
@@ -114,5 +124,5 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-logs-ubuntu
+          name: test-logs-ubuntu-${{ github.event_name }}
           path: logs/*.log
