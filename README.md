@@ -96,32 +96,3 @@ child_agent_collect({ id: "child_12345" })
 ```
 child_agent_create({ backendMode: "docker", scratchPath: "/tmp/child-scratch" })
 ```
-
-## Publishing to npm
-
-This package can be published to npm and will appear on the
-[pi.dev/packages](https://pi.dev/packages) gallery because it has the
-`pi-package` keyword in `package.json`.
-
-### Prerequisites
-
-1. Create an npm account at https://www.npmjs.com/signup
-2. Generate an automation token at https://www.npmjs.com/settings/your-username/tokens
-3. Add it to `.env`:
-
-```bash
-NPM_TOKEN=npm_your_token_here
-```
-
-### Publish
-
-```bash
-npm run publish:npm
-```
-
-The `publish:npm` script builds, validates, and publishes with `"access": "public"`.
-
-**Install after publish:**
-```bash
-pi install npm:pi-child-agent
-```
