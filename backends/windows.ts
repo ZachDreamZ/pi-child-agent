@@ -1,5 +1,6 @@
 import { spawn, ChildProcess, execSync } from "node:child_process";
 import fs from "node:fs";
+import path from "node:path";
 import { SessionBackend } from "./base.js";
 import { killProcessTree } from "../utils/process.js";
 
@@ -22,6 +23,12 @@ import { killProcessTree } from "../utils/process.js";
  *   │   • exits on [PICA_EXIT] sentinel                       │
  *   └─────────────────────────────────────────────────────────┘
  *
+ * Visible mode:
+ *   When visible: true is set, the child process spawns with a visible
+ *   console window. The REPL echoes commands and sentinels to the
+ *   console via > CON (cmd.exe) or Write-Host (pwsh), so the user
+ *   can watch execution live on their desktop.
+ *
  * Security:
  *   • The shell REPL never calls Invoke-Expression / iex.
  *   • Every command is dispatched via 'cmd /c $line' (cmd.exe sub-process).
@@ -30,6 +37,13 @@ import { killProcessTree } from "../utils/process.js";
  */
 export class WindowsNativeBackend extends SessionBackend {
   name = "windows-native";
+  private visible: boolean = false;
+
+  constructor(options?: { visible?: boolean }) {
+    super();
+    if (options?.visible) this.visible = true;
+  }
+
   /** Return the detected shell dialect for sentinel wrapping */
   get shellType(): string { return this.shellType_; }
   private processes: Map<string, ChildProcess> = new Map();
@@ -69,48 +83,71 @@ export class WindowsNativeBackend extends SessionBackend {
     const shell = this.detectShell();
     this.shellType_ = shell as typeof this.shellType_;
     const logStream = fs.createWriteStream(logPath, { flags: "a" });
+    const windowTitle = this.visible ? `Pi Child Agent — ${path.basename(scratchPath)}` : undefined;
 
     // ── Build the REPL command string ─────────────────────────────────────
     //
-    //   cmd.exe:  /d /q  — stays interactive reading from stdin using
-    //             a FOR loop that dispatches each line via cmd /c.
-    //
-    //       The FOR loop reads stdin, executes each non-empty line through
-    //       a cmd /c sub-process (never iex), and echoes a sentinel line
-    //       so the Node side can detect command boundaries.
-    //
-    //   pwsh/powershell:  A while(1) loop reading [Console]::In.ReadLine()
-    //             and dispatching via cmd /c (still through cmd.exe sub-shell).
-    //             This avoids ever calling Invoke-Expression.
+    //   Headless mode (default): quiet, pipes output to the log only.
+    //   Visible mode: opens a terminal window the user can watch.
     //
     let cmd: string;
 
     if (shell === "cmd") {
-      // cmd /d /q  + FOR /F loop that reads stdin and executes each line
-      // via cmd /c, outputting a boundary sentinel after each command.
-      cmd = `${shell} /d /q /v:on /c "(for /f \"delims=\" %l in ('more') do @if not \"%l\"==\"\" cmd /c \"%l\" & echo.[PICA_DONE])"`;
+      if (this.visible) {
+        // Visible REPL — shows commands and results in the console window
+        cmd = `${shell} /d /q /v:on /c "(title ${windowTitle}` +
+          ` & echo.` +
+          ` & (for /f "delims=" %l in ('more') do @if not "%l"=="" (` +
+          `echo.[PICA_CMD] %l` +
+          ` & echo [CMD] %l > CON` +
+          ` & cmd /c %l` +
+          ` & echo.[PICA_DONE]` +
+          ` & echo [DONE] > CON)))"`;
+      } else {
+        // Headless REPL — silent, sentinels go to the pipe only
+        cmd = `${shell} /d /q /v:on /c "(for /f "delims=" %l in ('more') do @if not "%l"=="" cmd /c "%l" & echo.[PICA_DONE])"`;
+      }
     } else if (shell === "pwsh") {
-      // pwsh REPL — uses [Console]::In.ReadLine(), dispatches via cmd /c
-      cmd = `${shell} -NoProfile -NonInteractive -Command "Set-Location '${scratchPath}'; while(` +
-        `$true){` +
-        `try{$l=[Console]::In.ReadLine()}catch{break}` +
-        `if($l -eq $null -or $l -eq '[PICA_EXIT]'){break}` +
-        `try{cmd /c $l 2>&1}catch{}` +
-        `echo '[PICA_DONE]'}`;
+      if (this.visible) {
+        // Visible pwsh — Write-Host for console, echo for pipe
+        cmd = `${shell} -NoProfile -NonInteractive -Command "` +
+          `$Host.UI.RawUI.WindowTitle='${windowTitle}'; ` +
+          `Write-Host '=== Pi Child Agent ===' -ForegroundColor Cyan; ` +
+          `Set-Location '${scratchPath}'; ` +
+          `while($true){` +
+          `try{$l=[Console]::In.ReadLine()}catch{break}` +
+          `if($l -eq $null -or $l -eq '[PICA_EXIT]'){break}` +
+          `Write-Host "[CMD] $l" -ForegroundColor Yellow; ` +
+          `try{cmd /c $l 2>&1}catch{}; ` +
+          `echo '[PICA_DONE]'; ` +
+          `Write-Host '[DONE]' -ForegroundColor Green}`;
+      } else {
+        // Headless pwsh
+        cmd = `${shell} -NoProfile -NonInteractive -Command "Set-Location '${scratchPath}'; while($true){try{$l=[Console]::In.ReadLine()}catch{break}if($l -eq $null -or $l -eq '[PICA_EXIT]'){break}try{cmd /c $l 2>&1}catch{}echo '[PICA_DONE]'}`;
+      }
     } else {
-      // powershell (Windows PowerShell 5.1) — same REPL as pwsh
-      cmd = `${shell} -NoProfile -NonInteractive -Command "Set-Location '${scratchPath}'; while(` +
-        `$true){` +
-        `try{$l=[Console]::In.ReadLine()}catch{break}` +
-        `if($l -eq $null -or $l -eq '[PICA_EXIT]'){break}` +
-        `try{cmd /c $l 2>&1}catch{}` +
-        `echo '[PICA_DONE]'}`;
+      // powershell (Windows PowerShell 5.1)
+      if (this.visible) {
+        cmd = `${shell} -NoProfile -NonInteractive -Command "` +
+          `$Host.UI.RawUI.WindowTitle='${windowTitle}'; ` +
+          `Write-Host '=== Pi Child Agent ===' -ForegroundColor Cyan; ` +
+          `Set-Location '${scratchPath}'; ` +
+          `while($true){` +
+          `try{$l=[Console]::In.ReadLine()}catch{break}` +
+          `if($l -eq $null -or $l -eq '[PICA_EXIT]'){break}` +
+          `Write-Host "[CMD] $l" -ForegroundColor Yellow; ` +
+          `try{cmd /c $l 2>&1}catch{}; ` +
+          `echo '[PICA_DONE]'; ` +
+          `Write-Host '[DONE]' -ForegroundColor Green}`;
+      } else {
+        cmd = `${shell} -NoProfile -NonInteractive -Command "Set-Location '${scratchPath}'; while($true){try{$l=[Console]::In.ReadLine()}catch{break}if($l -eq $null -or $l -eq '[PICA_EXIT]'){break}try{cmd /c $l 2>&1}catch{}echo '[PICA_DONE]'}`;
+      }
     }
 
     const child = spawn(cmd, [], {
       cwd,
       shell: true,
-      windowsHide: true,
+      windowsHide: !this.visible,
       env: this.filterEnv(process.env),
       stdio: ["pipe", "pipe", "pipe"],
     });

@@ -11,6 +11,8 @@ export interface ChildAgentConfig {
   policyMode: "strict" | "standard" | "trusted";
   backendMode: BackendMode;
   defaultShell: string;
+  /** When true, open a visible terminal window for the child process */
+  visibleWindow: boolean;
   maxRuntime: number; // in milliseconds
   maxLogSize: number; // in bytes
   maxSimultaneousChildren: number;
@@ -65,6 +67,7 @@ const DEFAULT_CONFIG: ChildAgentConfig = {
     "/proc",
   ],
   requireApprovalForHighRisk: true,
+  visibleWindow: false,
 
   // Persistent state defaults
   stateEnabled: true,

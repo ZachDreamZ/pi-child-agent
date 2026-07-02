@@ -11,7 +11,7 @@ export class BackendFactory {
   static async createBackend(mode: BackendMode, config: any): Promise<SessionBackend> {
     if (mode === "auto") {
       if (isWindows()) {
-        return new WindowsNativeBackend();
+        return new WindowsNativeBackend({ visible: config.visibleWindow ?? false });
       } else {
         if (await this.checkCommand("tmux")) {
           return new TmuxBackend();
@@ -22,7 +22,7 @@ export class BackendFactory {
 
     switch (mode) {
       case "windows-native":
-        return new WindowsNativeBackend();
+        return new WindowsNativeBackend({ visible: config.visibleWindow ?? false });
       case "tmux":
         return new TmuxBackend();
       case "docker":

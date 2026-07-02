@@ -278,13 +278,19 @@ export default async function (pi: ExtensionAPI) {
     label: "Create Child Agent",
     description: "Creates an isolated child agent session with a specified backend.",
     parameters: Type.Object({
+      visible: Type.Optional(Type.Boolean({ description: "Open a visible terminal window so you can watch the child process live on your desktop (Windows only, default false)." })),
       name: Type.Optional(Type.String({ description: "Optional friendly name for referencing this session (e.g. 'audit-script')." })),
       backendMode: Type.Optional(Type.String({ description: "Backend mode: auto, tmux, windows-native, docker, podman, local-shell. Default is auto." })),
       scratchPath: Type.String({ description: "Path to the writable scratch directory for the child agent." }),
     }),
     execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
       const mode = (params.backendMode as any) || "auto";
-      const backend = await BackendFactory.createBackend(mode, manager.config.getConfig());
+      // Merge visible flag into config so the backend picks it up
+      const mergedConfig = {
+        ...manager.config.getConfig(),
+        visibleWindow: params.visible ?? false,
+      };
+      const backend = await BackendFactory.createBackend(mode, mergedConfig);
       
       // Ensure we have a scratch path. If not provided, create a per-child one in a safe public dir.
       let scratchPath = params.scratchPath;
