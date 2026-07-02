@@ -595,11 +595,148 @@ export default async function (pi: ExtensionAPI) {
     }) as CommandHandler,
   });
 
+  // ── Interactive Dashboard Widget ──
+
   pi.on("session_start", async (_event: any, ctx: any) => {
     ctx.ui.notify("Pi Child Agent extension loaded.", "info");
+
+    // Static status indicator (shows extension is active)
+    ctx.ui.setStatus("child-agent", ctx.ui.theme.fg("accent", "🧒"));
+
+    // Live dashboard widget above editor — reads manager state on each render
+    ctx.ui.setWidget("child-agent-dashboard", (_tui: any, theme: any) => {
+      return {
+        render() {
+          const sessions = manager.listSessions();
+          const running = sessions.filter(s => s.status === "running").length;
+
+          if (sessions.length === 0) return [];
+
+          const lines: string[] = [
+            theme.fg("accent", theme.bold(` Child Agents: ${sessions.length} total, ${running} running`)),
+            theme.fg("muted", `  ${["ID", "Name", "Status", "Backend", "Uptime"].join(" │ ")}`),
+          ];
+          for (const s of sessions.slice(0, 8)) {
+            const uptime = Math.floor((Date.now() - s.startTime) / 1000);
+            const icon = ({ starting: "🟡", running: "🟢", done: "✅", failed: "❌", stopped: "🔴", timed_out: "⚠️", orphaned: "👻" } as any)[s.status] || "⚪";
+            const idShort = s.id.length > 16 ? s.id.slice(-16) : s.id;
+            lines.push(`  ${idShort.padEnd(16)} │ ${(s.name || "—").padEnd(12)} │ ${icon} ${s.status.padEnd(10)} │ ${s.backendType.padEnd(12)} │ ${uptime}s`);
+          }
+          if (sessions.length > 8) {
+            lines.push(theme.fg("dim", `  … and ${sessions.length - 8} more`));
+          }
+          return lines;
+        },
+        invalidate() {},
+      };
+    });
   });
 
   pi.on("session_shutdown", async (_event: any, ctx: any) => {
+    ctx.ui.setStatus("child-agent", undefined);
+    ctx.ui.setWidget("child-agent-dashboard", undefined);
     await manager.cleanupAll();
+  });
+
+  // ── Interactive Slash Commands ──
+
+  pi.registerCommand("child-list", {
+    description: "List all child agent sessions",
+    handler: async (args: string, ctx: any) => {
+      const sessions = manager.listSessions();
+      if (sessions.length === 0) {
+        ctx.ui.notify("No child agents.", "info");
+        return;
+      }
+      let table = "### 🧒 Child Agents\n\n| Name | ID | Status | Backend | Uptime |\n|---|---|---|---|---|\n";
+      for (const s of sessions) {
+        const uptime = Math.floor((Date.now() - s.startTime) / 1000);
+        table += `| ${s.name || "—"} | \`${s.id.slice(-16)}\` | ${s.status} | ${s.backendType} | ${uptime}s |\n`;
+      }
+      ctx.ui.notify(table, "info");
+    },
+  });
+
+  pi.registerCommand("child-stop", {
+    description: "Stop a child agent (Usage: /child-stop <id|name>)",
+    handler: async (args: string, ctx: any) => {
+      const id = args?.trim();
+      if (!id) {
+        ctx.ui.notify("Usage: /child-stop <id|name>", "error");
+        return;
+      }
+      try {
+        await manager.stopSession(id);
+        ctx.ui.notify(`Child agent **${id}** stopped.`, "info");
+      } catch (e: any) {
+        ctx.ui.notify(`Error: ${e.message}`, "error");
+      }
+    },
+  });
+
+  pi.registerCommand("child-logs", {
+    description: "Show recent logs for a child agent (Usage: /child-logs <id|name>)",
+    handler: async (args: string, ctx: any) => {
+      const id = args?.trim();
+      if (!id) {
+        ctx.ui.notify("Usage: /child-logs <id|name>", "error");
+        return;
+      }
+      try {
+        const logs = await manager.readLog(id);
+        const tail = logs.length > 2000 ? logs.slice(-2000) : logs;
+        ctx.ui.notify(`📝 Logs for **${id}**:\n\`\`\`\n${tail}\n\`\`\``, "info");
+      } catch (e: any) {
+        ctx.ui.notify(`Error: ${e.message}`, "error");
+      }
+    },
+  });
+
+  pi.registerCommand("child-cleanup", {
+    description: "Stop all child agents and clean up",
+    handler: async (args: string, ctx: any) => {
+      try {
+        await manager.cleanupAll();
+        ctx.ui.notify("All child agents stopped.", "info");
+      } catch (e: any) {
+        ctx.ui.notify(`Error: ${e.message}`, "error");
+      }
+    },
+  });
+
+  pi.registerCommand("child-queue", {
+    description: "Show task queue status",
+    handler: async (args: string, ctx: any) => {
+      const status = manager.queue.getQueueStatus();
+      ctx.ui.notify(
+        "### 📋 Queue Status\n\n" +
+        `**Active**: ${status.running ? "✅" : "❌"}` +
+        ` | **Running**: ${status.runningTasks}` +
+        ` | **Queued**: ${status.queued}` +
+        ` | **Succeeded**: ${status.succeeded}` +
+        ` | **Failed**: ${status.failed}`,
+        "info"
+      );
+    },
+  });
+
+  pi.registerCommand("child-help", {
+    description: "Show available child-agent commands",
+    handler: async (args: string, ctx: any) => {
+      ctx.ui.notify(
+        "## 🧒 Child Agent Commands\n\n" +
+        "| Command | Description |\n" +
+        "|---------|-------------|\n" +
+        "| `/child-create <path> [backend] [name]` | Create child agent |\n" +
+        "| `/child-list` | List all sessions |\n" +
+        "| `/child-stop <id\|name>` | Stop a session |\n" +
+        "| `/child-logs <id\|name>` | View logs |\n" +
+        "| `/child-cleanup` | Stop all |\n" +
+        "| `/child-queue` | Queue status |\n" +
+        "| `/child-help` | This help |\n\n" +
+        "Also use the **18 tools** listed in the LLM tool menu.",
+        "info"
+      );
+    },
   });
 }
