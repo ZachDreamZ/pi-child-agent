@@ -229,8 +229,13 @@ export class ChildSessionManager {
     if (["succeeded", "failed", "timed_out", "canceled", "blocked"].includes(persisted.status)) {
       return persisted.status;
     }
-    // Queued tasks remain queued if recovery is enabled
+    // Queued tasks remain queued if recovery is enabled and they're not too old
     if (persisted.status === "queued" && cfg.recoverQueuedTasks) {
+      // Check if the task is too old to recover (stale test artifacts, etc.)
+      const taskAge = Date.now() - persisted.createdAt;
+      if (taskAge > cfg.maxRecoverTaskAgeMs) {
+        return "interrupted";
+      }
       return "queued";
     }
     // Running or approval_required tasks become interrupted
@@ -413,6 +418,16 @@ export class ChildSessionManager {
     // Use the PID for backends that require it (Windows/Shell) 
     // or the sessionId for those that do (Tmux/Container)
     const targetId = session.pid ? session.pid.toString() : id;
+    
+    // Handle recovered sessions with no backend reference (orphaned from state)
+    if (!session.backend) {
+      // No live process to stop — just update status
+      session.status = "stopped";
+      session.exitReason = "stopped_by_user";
+      await this.persistChildrenState();
+      return;
+    }
+    
     await session.backend.stop(targetId);
     session.status = session.timedOut ? "timed_out" : "stopped";
     session.exitReason = session.timedOut ? "timed_out" : "stopped_by_user";

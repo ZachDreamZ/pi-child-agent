@@ -30,6 +30,8 @@ export interface ChildAgentConfig {
   maxPersistedChildren: number;
   recoverQueuedTasks: boolean;
   rerunInterruptedTasks: boolean;
+  /** Max age in ms for recovering queued tasks (default 1h). Older queued tasks become interrupted. */
+  maxRecoverTaskAgeMs: number;
 }
 
 const DEFAULT_CONFIG: ChildAgentConfig = {
@@ -74,6 +76,7 @@ const DEFAULT_CONFIG: ChildAgentConfig = {
   maxPersistedChildren: 100,
   recoverQueuedTasks: true,
   rerunInterruptedTasks: false,
+  maxRecoverTaskAgeMs: 3600000, // 1 hour
 };
 
 export class ConfigLoader {
