@@ -6,6 +6,7 @@ import os from "node:os";
 import fs from "node:fs/promises";
 
 const piMock: any = { registerTool: () => {}, registerCommand: () => {}, on: () => {} };
+const testConfig = { stateEnabled: false };
 
 async function runTests() {
   console.log("═══ Task Queue Tests ═══\n");
@@ -13,7 +14,7 @@ async function runTests() {
   // --- Test 1 & 2: Basic Flow ---
   {
     console.log("[1] Enqueue single task");
-    const manager = new ChildSessionManager(piMock);
+    const manager = new ChildSessionManager(piMock, testConfig);
     await manager.initialize();
     const scratchDir = path.join(os.tmpdir(), "pi-queue-test-1");
     await fs.mkdir(scratchDir, { recursive: true });
@@ -46,7 +47,7 @@ async function runTests() {
   // --- Test 3: Priority ---
   {
     console.log("\n[3] Priority ordering");
-    const manager = new ChildSessionManager(piMock);
+    const manager = new ChildSessionManager(piMock, testConfig);
     await manager.initialize();
 
     const low = await manager.enqueueTask({ title: "Low", command: "echo 1", priority: "low" });
@@ -65,7 +66,7 @@ async function runTests() {
   // --- Test 4: Concurrency ---
   {
     console.log("\n[4] Max concurrency respected");
-    const manager = new ChildSessionManager(piMock);
+    const manager = new ChildSessionManager(piMock, testConfig);
     await manager.initialize();
 
     await manager.enqueueTask({ title: "T1", command: "timeout 5", priority: "normal" });
@@ -89,7 +90,7 @@ async function runTests() {
   // --- Test 6: Security Block ---
   {
     console.log("\n[6] Blocked dangerous command");
-    const manager = new ChildSessionManager(piMock);
+    const manager = new ChildSessionManager(piMock, testConfig);
     await manager.initialize();
 
     const dangerous = await manager.enqueueTask({
@@ -115,7 +116,7 @@ async function runTests() {
   // --- Test 7: Cancellation ---
   {
     console.log("\n[7] Cancel task");
-    const manager = new ChildSessionManager(piMock);
+    const manager = new ChildSessionManager(piMock, testConfig);
     await manager.initialize();
 
     const cancelT = await manager.enqueueTask({ title: "Cancel", command: "sleep 10" });
@@ -131,7 +132,7 @@ async function runTests() {
   // --- Test 8: History ---
   {
     console.log("\n[8] Clear history");
-    const manager = new ChildSessionManager(piMock);
+    const manager = new ChildSessionManager(piMock, testConfig);
     await manager.initialize();
 
     const t8 = await manager.enqueueTask({ title: "T1", command: "echo 1" });

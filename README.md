@@ -28,6 +28,10 @@ The extension registers fourteen tools callable by the parent LLM agent:
 | `child_agent_queue_cancel` | Cancels a queued or running task |
 | `child_agent_queue_collect` | Collects structured results for a task or all completed tasks |
 | `child_agent_queue_clear` | Clears completed, canceled, or failed tasks from history |
+| `child_agent_state_status` | Returns the current persistent state status including path, counts, and last save time |
+| `child_agent_state_save` | Forces an immediate save of the current children and tasks state to disk |
+| `child_agent_state_load` | Reloads state from disk and reports what was recovered |
+| `child_agent_state_clear` | Clears the persisted state file (requires confirmation; does not kill active processes) |
 
 ## Commands
 
@@ -111,11 +115,63 @@ child_agent_queue_status({ includeCompleted: true })
 child_agent_queue_collect({ allCompleted: true })
 ```
 
-## Verification Status
+## Persistent State and Recovery
+
+The extension can persist child session and task queue metadata to disk, allowing state to survive Pi restarts or be inspected after crashes.
+
+### What is persisted
+
+- **Child session metadata**: ID, status, backend type, PID, start/stop times, scratch path, log path, policy mode, last command, exit reason.
+- **Task queue metadata**: ID, title, command, status, priority, attempts, timestamps, timeout, result summary, error, associated child session ID.
+
+### Where state is stored
+
+| Platform | Default Path |
+|----------|-------------|
+| **Windows** | `%LOCALAPPDATA%/pi-child-agent/state/state.json` |
+| **Linux/macOS** | `~/.pi-child-agent/state/state.json` |
+
+The path can be overridden via the `stateDir` configuration option.
+
+### What is NOT persisted
+
+- Secrets, environment variables, or API keys
+- Full environment
+- Process memory or stdout/stderr buffers
+- Temporary scratch directory contents
+
+### Orphaned Children
+
+On startup, child sessions that were previously `running` or `starting` are marked as **orphaned** — the extension does not reattach to unknown processes. Orphaned sessions can be inspected via `child_agent_list` and cleaned up with `child_agent_cleanup`.
+
+### Interrupted Queue Tasks
+
+On startup, tasks that were previously `running` are marked as **interrupted**. They are not automatically re-run unless `rerunInterruptedTasks: true` is configured (default: `false`). Queued tasks from a previous session remain queued if `recoverQueuedTasks: true` (default).
+
+### State Management Tools
+
+| Tool | Description |
+|------|-------------|
+| `child_agent_state_status` | Returns state path, persistence counts, last save time, and corrupt recovery status |
+| `child_agent_state_save` | Forces an immediate save of all children and task states to disk |
+| `child_agent_state_load` | Reloads state from disk and reports what was recovered |
+| `child_agent_state_clear` | Clears the persisted state file (requires `confirm: true`; does not kill active processes) |
+
+### Clearing State
+
+```json
+child_agent_state_clear({ confirm: true, includeHistory: true })
+```
+
+This clears the persisted state file and optionally removes completed session/task history from memory. Active child processes are **not** killed — use `child_agent_cleanup` separately.
+
+### Privacy/Security Note
+
+Persisted state intentionally excludes secrets, environment variables, and command output. The state file is a plain JSON file stored in a user-writable location. Treat it as potentially readable by other processes on the same machine.
 
 | Capability | Status | Notes |
 |------------|--------|-------|
-| **Build & validation** | ✅ Verified | `tsc` zero errors; tool schema validates 14/14 tools |
+| **Build & validation** | ✅ Verified | `tsc` zero errors; tool schema validates 18/18 tools |
 | **Windows native backend** | ✅ Verified | 44-assertion smoke test + 23-assertion live workflow pass |
 | **Phase 2 hardening** | ✅ Verified | 15/15 assertions pass |
 | **Crash recovery** | ✅ Verified | 20/20 assertions pass |
@@ -124,7 +180,10 @@ child_agent_queue_collect({ allCompleted: true })
 | **Secret scrubbing** | ✅ Verified | API keys/tokens removed from child env |
 | **High-risk command detection** | ✅ Verified | Dangerous commands detected |
 | **Timeout enforcement** | ✅ Verified | Manager-side timeout auto-stops children |
-| **Task Queue Mode** | ✅ Verified | 8/8 core queue scenarios pass |
+| **Security policies** | ✅ Verified | Strict/standard/trusted modes pass |
+| **Structured collect** | ✅ Verified | Deterministic log parsing passes |
+| **Task Queue Mode** | ✅ Verified | 8/8 queue tests pass (priority, concurrency, security, cancel, history) |
+| **State recovery** | 🟡 Pending | 19-assertion test written; pending local + CI verification |
 | **Container mode** | ⚠ Implemented, SKIPPED locally | Docker/Podman not installed |
 | **Autonomous LLM orchestration** | ⏸ Requires provider quota | 429 rate limit blocks LLM-driven workflow |
 | **Interactive CLI tools** | ❌ Not implemented | No PTY support documented in `docs/pty-research.md` |

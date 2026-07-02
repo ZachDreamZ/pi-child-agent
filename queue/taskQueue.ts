@@ -1,4 +1,4 @@
-export type TaskStatus = "queued" | "running" | "succeeded" | "failed" | "canceled" | "timed_out" | "blocked" | "approval_required";
+export type TaskStatus = "queued" | "running" | "succeeded" | "failed" | "canceled" | "timed_out" | "blocked" | "approval_required" | "interrupted";
 export type TaskPriority = "low" | "normal" | "high";
 
 export interface QueuedTask {
@@ -99,6 +99,24 @@ export class TaskQueue {
       }
     }
     return initialSize - this.tasks.size;
+  }
+
+  clearAllHistory(): number {
+    const initialSize = this.tasks.size;
+    for (const [id, task] of this.tasks.entries()) {
+      if (task.status !== "queued" && task.status !== "running" && task.status !== "approval_required") {
+        this.tasks.delete(id);
+      }
+    }
+    return initialSize - this.tasks.size;
+  }
+
+  getAllTasks(): QueuedTask[] {
+    return Array.from(this.tasks.values());
+  }
+
+  recoverTask(task: QueuedTask): void {
+    this.tasks.set(task.id, task);
   }
 
   getQueueStatus() {

@@ -55,7 +55,7 @@ async function main(): Promise<void> {
   assert("WSL is NOT required (native win32)", process.platform === "win32");
   console.log();
 
-  const manager = new ChildSessionManager(mockPi);
+  const manager = new ChildSessionManager(mockPi, { stateEnabled: false });
   await manager.initialize();
 
   // ── 1-4: Backend selection & shell fallback ──────────────────────────────

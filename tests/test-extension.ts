@@ -24,7 +24,7 @@ const mockPi = {
 async function runTests() {
   console.log("Starting pi-child-agent tests...");
 
-  const manager = new ChildSessionManager(mockPi as any);
+  const manager = new ChildSessionManager(mockPi as any, { stateEnabled: false });
   await manager.initialize();
 
   const scratchDir = path.join("C:\\Users\\Public", "pi-child-test-scratch");

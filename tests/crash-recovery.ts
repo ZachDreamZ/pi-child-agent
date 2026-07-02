@@ -39,7 +39,7 @@ async function main(): Promise<void> {
   if (!isWindows()) { console.log("Crash recovery tests require Windows. Skipping."); return; }
   console.log("═══ pi-child-agent: Crash Recovery Tests ═══\n");
 
-  const manager = new ChildSessionManager(mockPi);
+  const manager = new ChildSessionManager(mockPi, { stateEnabled: false });
   await manager.initialize();
 
   // Helper: create a session

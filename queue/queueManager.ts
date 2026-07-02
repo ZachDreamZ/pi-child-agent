@@ -231,6 +231,23 @@ export class QueueManager {
     return this.queue.getTask(id);
   }
 
+  getAllTasks() {
+    return this.queue.getAllTasks();
+  }
+
+  recoverTask(task: QueuedTask) {
+    this.queue.recoverTask(task);
+  }
+
+  clearAllTasks() {
+    this.runningTasks.clear();
+    this.queue.clearTasks({ includeSucceeded: true, includeFailed: true, includeCanceled: true });
+  }
+
+  clearAllHistory() {
+    this.queue.clearAllHistory();
+  }
+
   updateTask(id: string, updates: any) {
     return this.queue.updateTask(id, updates);
   }

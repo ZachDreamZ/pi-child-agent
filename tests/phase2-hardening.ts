@@ -49,7 +49,7 @@ async function main(): Promise<void> {
 
   console.log("═══ pi-child-agent: Phase 2 Hardening & Real-World Tests ═══\n");
 
-  const manager = new ChildSessionManager(mockPi);
+  const manager = new ChildSessionManager(mockPi, { stateEnabled: false });
   await manager.initialize();
 
   // ────────────────────────────────────────────────────────────────────────

@@ -176,6 +176,103 @@ export default async function (pi: ExtensionAPI) {
     }) as ToolHandler,
   });
 
+  // ── State Tools ──
+
+  pi.registerTool({
+    name: "child_agent_state_status",
+    label: "State Status",
+    description: "Returns the current persistent state status including path, counts, and last save time.",
+    parameters: Type.Object({}),
+    execute: (async (_toolCallId, _params, _signal, _onUpdate, ctx): Promise<any> => {
+      try {
+        const status = await manager.getStateStatus();
+        const s = status as any;
+        const report = `### 📁 Persistent State Status\n\n` +
+          `**Enabled**: ${s.stateEnabled ? "✅" : "❌"}\n` +
+          `**State Path**: \`${s.statePath}\`\n` +
+          `**Children Persisted**: ${s.childrenPersisted}\n` +
+          `**Tasks Persisted**: ${s.tasksPersisted}\n` +
+          `**Last Saved**: ${new Date(s.lastSavedAt).toLocaleString()}\n` +
+          `**Corrupt State Recovered**: ${s.corruptStateRecovered ? "⚠️ Yes" : "No"}`;
+        return {
+          content: [{ type: "text", text: report }],
+          details: s,
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `❌ **Failed to get state status**: ${e.message}` }], details: { success: false } };
+      }
+    }) as ToolHandler,
+  });
+
+  pi.registerTool({
+    name: "child_agent_state_save",
+    label: "Save State",
+    description: "Forces an immediate save of the current children and tasks state to disk.",
+    parameters: Type.Object({}),
+    execute: (async (_toolCallId, _params, _signal, _onUpdate, ctx): Promise<any> => {
+      try {
+        const result = await manager.saveState();
+        const r = result as any;
+        return {
+          content: [{ type: "text", text: `### 💾 State Saved\n\n**Saved At**: ${new Date(r.savedAt).toLocaleString()}\n**State Path**: \`${r.statePath}\`` }],
+          details: r,
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `❌ **Failed to save state**: ${e.message}` }], details: { success: false } };
+      }
+    }) as ToolHandler,
+  });
+
+  pi.registerTool({
+    name: "child_agent_state_load",
+    label: "Load State",
+    description: "Reloads state from disk and reports what was recovered.",
+    parameters: Type.Object({}),
+    execute: (async (_toolCallId, _params, _signal, _onUpdate, ctx): Promise<any> => {
+      try {
+        const result = await manager.loadState();
+        const r = result as any;
+        const report = `### 🔄 State Reloaded\n\n` +
+          `**Children Recovered**: ${r.childrenRecovered}\n` +
+          `**Tasks Recovered**: ${r.tasksRecovered}\n` +
+          `**Orphaned Children**: ${r.orphanedChildren}\n` +
+          `**Interrupted Tasks**: ${r.interruptedTasks}\n` +
+          (r.message ? `**Message**: ${r.message}\n` : "");
+        return {
+          content: [{ type: "text", text: report }],
+          details: r,
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `❌ **Failed to load state**: ${e.message}` }], details: { success: false } };
+      }
+    }) as ToolHandler,
+  });
+
+  pi.registerTool({
+    name: "child_agent_state_clear",
+    label: "Clear State",
+    description: "Clears the persisted state file. Requires confirm: true. Does not kill active child processes.",
+    parameters: Type.Object({
+      confirm: Type.Boolean({ description: "Must be true to confirm clearing state." }),
+      includeHistory: Type.Optional(Type.Boolean({ description: "Also clear completed session/task history from memory. Default: true." })),
+    }),
+    execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
+      try {
+        const result = await manager.clearState(params.confirm, params.includeHistory ?? true);
+        const r = result as any;
+        if (!r.success) {
+          return { content: [{ type: "text", text: `❌ **${r.error}**` }], details: r };
+        }
+        return {
+          content: [{ type: "text", text: `### 🧹 State Cleared\n\n**State Path**: \`${r.statePath}\`\n\nActive child processes were not killed. Use \`child_agent_cleanup\` to stop them.` }],
+          details: r,
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `❌ **Failed to clear state**: ${e.message}` }], details: { success: false } };
+      }
+    }) as ToolHandler,
+  });
+
   pi.registerTool({
     name: "child_agent_create",
     label: "Create Child Agent",
@@ -438,7 +535,7 @@ export default async function (pi: ExtensionAPI) {
       let table = `### 📋 Active Child Agents\n\n| ID | Status | Backend |\n|---|---|---|\n`;
       for (const s of sessions) {
         const statusEmoji = {
-          starting: "🟡", running: "🟢", done: "✅", failed: "❌", stopped: "🔴", timed_out: "⚠️",
+          starting: "🟡", running: "🟢", done: "✅", failed: "❌", stopped: "🔴", timed_out: "⚠️", orphaned: "👻",
         }[s.status] || "⚪";
         table += `| \`${s.id}\` | ${statusEmoji} ${s.status} | \`${s.backendType}\` |\n`;
       }

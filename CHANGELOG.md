@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.1.12 (2026-07-02)
+
+This release adds Persistent State and Queue Recovery for surviving Pi restarts and inspecting/cleaning sessions after crashes.
+
+### Added
+- Persistent state store with atomic writes
+- Recovery for child sessions on startup
+- Recovery for queue tasks on startup
+- Orphaned child status for sessions with stale PIDs
+- Interrupted task status for previously running tasks
+- 4 state management tools:
+  - child_agent_state_status
+  - child_agent_state_save
+  - child_agent_state_load
+  - child_agent_state_clear
+- State recovery test suite (19 tests)
+- Configuration options for state persistence control
+- Corrupt state file detection and recovery
+
+### Verified
+- TypeScript build passes
+- 18 tools validated
+- Doctor passes
+- State recovery tests pass
+- All previous tests continue to pass
+
+### Limitations
+- Container backend is implemented but still requires Docker/Podman verification on a capable machine
+- PTY/interactive terminal support is not implemented
+- Windows native mode is process isolation, not a hardened sandbox
+
 ## 0.1.11 (2026-07-02)
 
 This release adds Task Queue Mode for delegated multi-task child-agent workflows.

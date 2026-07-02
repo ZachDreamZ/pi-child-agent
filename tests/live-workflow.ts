@@ -26,7 +26,7 @@ async function main(): Promise<void> {
   console.log("═══ Live Pi Tool-Calling Workflow ═══\n");
   console.log("[1] child_agent_create\n");
 
-  const manager = new ChildSessionManager(mockPi);
+  const manager = new ChildSessionManager(mockPi, { stateEnabled: false });
   await manager.initialize();
 
   const scratchPath = path.join("C:\\Users\\Public", "pi-live-workflow-" + Date.now());

@@ -19,6 +19,17 @@ export interface ChildAgentConfig {
   secretForwarding: boolean;
   protectedPaths: string[];
   requireApprovalForHighRisk: boolean;
+
+  // Persistent state
+  stateEnabled: boolean;
+  stateDir: string;
+  stateFile: string;
+  persistCompletedTasks: boolean;
+  maxPersistedTasks: number;
+  persistStoppedChildren: boolean;
+  maxPersistedChildren: number;
+  recoverQueuedTasks: boolean;
+  rerunInterruptedTasks: boolean;
 }
 
 const DEFAULT_CONFIG: ChildAgentConfig = {
@@ -52,6 +63,17 @@ const DEFAULT_CONFIG: ChildAgentConfig = {
     "/proc",
   ],
   requireApprovalForHighRisk: true,
+
+  // Persistent state defaults
+  stateEnabled: true,
+  stateDir: "",
+  stateFile: "state.json",
+  persistCompletedTasks: true,
+  maxPersistedTasks: 200,
+  persistStoppedChildren: true,
+  maxPersistedChildren: 100,
+  recoverQueuedTasks: true,
+  rerunInterruptedTasks: false,
 };
 
 export class ConfigLoader {
