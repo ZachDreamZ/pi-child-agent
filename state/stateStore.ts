@@ -8,6 +8,7 @@ import os from "node:os";
 
 export interface PersistedChildSession {
   id: string;
+  name?: string;
   status: "starting" | "running" | "done" | "failed" | "stopped" | "timed_out" | "orphaned";
   backendType: string;
   pid?: number;

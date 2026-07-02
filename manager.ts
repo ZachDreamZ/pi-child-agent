@@ -20,6 +20,7 @@ const PKG_VERSION = JSON.parse(readFileSync(path.join(__dirname, "package.json")
 
 export interface ChildSession {
   id: string;
+  name?: string;
   status: "starting" | "running" | "done" | "failed" | "stopped" | "timed_out" | "orphaned";
   backendType: string;
   osType: string;
@@ -37,6 +38,8 @@ export interface ChildSession {
 
 export class ChildSessionManager {
   private sessions: Map<string, ChildSession> = new Map();
+  /** Maps session names → session IDs for friendly-name lookup */
+  private sessionsByName: Map<string, string> = new Map();
   public config: ConfigLoader;
   public guard: SecurityGuard;
   private logger: Logger;
@@ -104,6 +107,7 @@ export class ChildSessionManager {
         // PID might still be alive — mark as orphaned (we don't reattach)
         const session: ChildSession = {
           id: persisted.id,
+          name: persisted.name,
           status: "orphaned",
           backendType: persisted.backendType,
           osType: getOSType(),
@@ -122,6 +126,7 @@ export class ChildSessionManager {
       } else if (cfg.persistStoppedChildren) {
         const session: ChildSession = {
           id: persisted.id,
+          name: persisted.name,
           status: recoveredStatus as any,
           backendType: persisted.backendType,
           osType: getOSType(),
@@ -244,6 +249,7 @@ export class ChildSessionManager {
     for (const session of this.sessions.values()) {
       persisted.push({
         id: session.id,
+        name: session.name,
         status: session.status,
         backendType: session.backendType,
         pid: session.pid,
@@ -272,7 +278,7 @@ export class ChildSessionManager {
   // Session Management
   // ════════════════════════════════════════
 
-  async createSession(backend: SessionBackend, scratchPath: string, logPath: string): Promise<ChildSession> {
+  async createSession(backend: SessionBackend, scratchPath: string, logPath: string, sessionName?: string): Promise<ChildSession> {
     const id = `child_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     
     // Check limits
@@ -298,6 +304,7 @@ export class ChildSessionManager {
 
     const session: ChildSession = {
       id,
+      name: sessionName,
       status: "running",
       backendType: backend.name,
       osType: getOSType(),
@@ -340,13 +347,27 @@ export class ChildSessionManager {
       session.timeoutTimer.unref?.();
     }
 
+    // If a friendly name was given, register it (reject duplicates)
+    if (sessionName) {
+      if (this.sessionsByName.has(sessionName)) {
+        throw new Error(`Session name "${sessionName}" is already in use.`);
+      }
+      this.sessionsByName.set(sessionName, id);
+    }
+
     this.sessions.set(id, session);
     await this.persistChildrenState();
     return session;
   }
 
-  getSession(id: string): ChildSession | undefined {
-    return this.sessions.get(id);
+  getSession(idOrName: string): ChildSession | undefined {
+    // Try direct ID lookup first
+    let session = this.sessions.get(idOrName);
+    if (session) return session;
+    // Fallback: treat as a friendly name
+    const idByName = this.sessionsByName.get(idOrName);
+    if (idByName) return this.sessions.get(idByName);
+    return undefined;
   }
 
   formatStatus(session: ChildSession): string {
@@ -362,6 +383,7 @@ export class ChildSessionManager {
 
     return [
       `**Session ID**: \`${session.id}\``,
+      `**Name**: ${session.name || "—"}`,
       `**Status**: ${statusEmoji} ${session.status.toUpperCase()}`,
       `**Backend**: \`${session.backendType}\``,
       `**OS**: \`${session.osType}\``,
@@ -378,6 +400,9 @@ export class ChildSessionManager {
   async stopSession(id: string): Promise<void> {
     const session = this.getSession(id);
     if (!session) throw new Error(`Session ${id} not found`);
+
+    // Remove from name map if present
+    if (session.name) this.sessionsByName.delete(session.name);
 
     // Clear timeout timer if active
     if (session.timeoutTimer) {
@@ -434,6 +459,7 @@ export class ChildSessionManager {
       }
     }
     this.sessions.clear();
+    this.sessionsByName.clear();
     await this.persistChildrenState();
   }
 

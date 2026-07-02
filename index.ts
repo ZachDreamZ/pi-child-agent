@@ -278,6 +278,7 @@ export default async function (pi: ExtensionAPI) {
     label: "Create Child Agent",
     description: "Creates an isolated child agent session with a specified backend.",
     parameters: Type.Object({
+      name: Type.Optional(Type.String({ description: "Optional friendly name for referencing this session (e.g. 'audit-script')." })),
       backendMode: Type.Optional(Type.String({ description: "Backend mode: auto, tmux, windows-native, docker, podman, local-shell. Default is auto." })),
       scratchPath: Type.String({ description: "Path to the writable scratch directory for the child agent." }),
     }),
@@ -299,7 +300,7 @@ export default async function (pi: ExtensionAPI) {
         await fs.mkdir(scratchPath, { recursive: true });
         
         const logPath = path.join(os.tmpdir(), "pi-child-agent", "logs", `child_${Date.now()}.log`);
-        const session = await manager.createSession(backend, scratchPath, logPath);
+        const session = await manager.createSession(backend, scratchPath, logPath, params.name);
         
         return {
           content: [{ 
@@ -571,11 +572,12 @@ export default async function (pi: ExtensionAPI) {
   // --- Commands ---
 
   pi.registerCommand("child-create", {
-    description: "Create a child agent (Usage: /child-create <scratchPath> [backendMode])",
+    description: "Create a child agent (Usage: /child-create <scratchPath> [backendMode] [name])",
     handler: (async (args: string, ctx): Promise<void> => {
       const parts = args ? args.split(" ") : [];
       const scratchPath = parts[0];
       const mode = parts[1] || "auto";
+      const sessionName = parts[2] || undefined;
 
       if (!scratchPath) {
         ctx.ui.notify("Please provide a scratch path.", "error");
@@ -585,8 +587,8 @@ export default async function (pi: ExtensionAPI) {
       try {
         const backend = await BackendFactory.createBackend(mode as any, manager.config.getConfig());
         const logPath = path.join(os.tmpdir(), "pi-child-agent", "logs", `child_${Date.now()}.log`);
-        const session = await manager.createSession(backend, scratchPath, logPath);
-        ctx.ui.notify(`Child agent ${session.id} created!`, "info");
+        const session = await manager.createSession(backend, scratchPath, logPath, sessionName);
+        ctx.ui.notify(`Child agent ${session.id} created!${sessionName ? ` (name: ${sessionName})` : ""}`, "info");
       } catch (e: any) {
         ctx.ui.notify(`Error: ${e.message}`, "error");
       }
