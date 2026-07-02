@@ -10,7 +10,7 @@ pi install npm:pi-child-agent
 
 ## Tools
 
-The extension registers fourteen tools callable by the parent LLM agent:
+The extension registers **19 tools** callable by the parent LLM agent:
 
 | Tool | Description |
 |------|-------------|
@@ -32,6 +32,7 @@ The extension registers fourteen tools callable by the parent LLM agent:
 | `child_agent_state_save` | Forces an immediate save of the current children and tasks state to disk |
 | `child_agent_state_load` | Reloads state from disk and reports what was recovered |
 | `child_agent_state_clear` | Clears the persisted state file (requires confirmation; does not kill active processes) |
+| `child_agent_reload_config` | Update configuration settings at runtime (visibleWindow, policyMode, etc.) |
 
 ## Commands
 
@@ -171,7 +172,7 @@ Persisted state intentionally excludes secrets, environment variables, and comma
 
 | Capability | Status | Notes |
 |------------|--------|-------|
-| **Build & validation** | ✅ Verified | `tsc` zero errors; tool schema validates 18/18 tools |
+| **Build & validation** | ✅ Verified | `tsc` zero errors; tool schema validates 19/19 tools |
 | **Windows native backend** | ✅ Verified | 44-assertion smoke test + 23-assertion live workflow pass |
 | **Phase 2 hardening** | ✅ Verified | 15/15 assertions pass |
 | **Crash recovery** | ✅ Verified | 20/20 assertions pass |

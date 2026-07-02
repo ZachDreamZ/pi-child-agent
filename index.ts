@@ -273,6 +273,44 @@ export default async function (pi: ExtensionAPI) {
     }) as ToolHandler,
   });
 
+  // ── Config Reload Tool ──
+
+  pi.registerTool({
+    name: "child_agent_reload_config",
+    label: "Reload Config",
+    description: "Update configuration settings at runtime (visibleWindow, policyMode, etc.). Changes apply to new sessions.",
+    parameters: Type.Object({
+      visibleWindow: Type.Optional(Type.Boolean({ description: "Open visible terminal windows for new child sessions." })),
+      policyMode: Type.Optional(Type.String({ description: "Security policy mode: strict, standard, or trusted." })),
+      maxSimultaneousChildren: Type.Optional(Type.Number({ description: "Limit concurrent child sessions." })),
+      maxRuntime: Type.Optional(Type.Number({ description: "Max child runtime in ms." })),
+    }),
+    execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
+      try {
+        const changed: string[] = [];
+        for (const [key, value] of Object.entries(params)) {
+          if (value !== undefined) {
+            (manager.config as any).set(key, value);
+            changed.push(`${key}: ${JSON.stringify(value)}`);
+          }
+        }
+        // If policyMode changed, reinitialize the security guard
+        if (params.policyMode) {
+          const { resolvePolicy } = await import("./security/policy.js");
+          manager.guard.setPolicy(resolvePolicy(manager.config.getConfig()));
+          changed.push("security policy reinitialized");
+        }
+        const report = `### ⚙️ Config Updated\n\n**Changes**: ${changed.join(", ")}`;
+        return {
+          content: [{ type: "text", text: report }],
+          details: { success: true, changed },
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `❌ **Failed**: ${e.message}` }], details: { success: false } };
+      }
+    }) as ToolHandler,
+  });
+
   pi.registerTool({
     name: "child_agent_create",
     label: "Create Child Agent",
@@ -739,10 +777,28 @@ export default async function (pi: ExtensionAPI) {
         "| `/child-logs <id\|name>` | View logs |\n" +
         "| `/child-cleanup` | Stop all |\n" +
         "| `/child-queue` | Queue status |\n" +
+        "| `/child-visible [on\\|off]` | Toggle visible terminal windows |\n" +
         "| `/child-help` | This help |\n\n" +
-        "Also use the **18 tools** listed in the LLM tool menu.",
+        "Also use the **19 tools** listed in the LLM tool menu.",
         "info"
       );
+    },
+  });
+
+  pi.registerCommand("child-visible", {
+    description: "Toggle visible terminal windows (Usage: /child-visible [on|off])",
+    handler: async (args: string, ctx: any) => {
+      const arg = args?.trim().toLowerCase();
+      if (arg === "on") {
+        manager.config.set("visibleWindow", true);
+        ctx.ui.notify("Visible window mode enabled. New sessions will open terminal windows.", "info");
+      } else if (arg === "off") {
+        manager.config.set("visibleWindow", false);
+        ctx.ui.notify("Visible window mode disabled.", "info");
+      } else {
+        const current = manager.config.get("visibleWindow");
+        ctx.ui.notify(`Visible window mode is currently ${current ? "ON" : "OFF"}. Use /child-visible on or /child-visible off to toggle.`, "info");
+      }
     },
   });
 }
