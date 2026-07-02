@@ -97,7 +97,10 @@ export class QueueManager {
         ? path.join("C:\\Users\\Public", "pi-child-agent", "queue-scratch") 
         : path.join(os.tmpdir(), "pi-child-agent", "queue-scratch");
       const scratchPath = path.join(root, `task_${task.id}`);
-      const logPath = path.join(os.tmpdir(), "pi-child-agent", "logs", `task_${task.id}.log`);
+      const logRoot = process.platform === 'win32'
+        ? path.join("C:\\Users\\Public", "pi-child-agent", "queue-logs")
+        : path.join(os.tmpdir(), "pi-child-agent", "queue-logs");
+      const logPath = path.join(logRoot, `task_${task.id}.log`);
       
       await fs.mkdir(scratchPath, { recursive: true });
       const session = (await this.manager.createSession(backend, scratchPath, logPath)) as ChildSession;
