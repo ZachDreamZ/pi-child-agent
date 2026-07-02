@@ -2,14 +2,40 @@
 
 ## 0.1.11 (2026-07-02)
 
-### Task Queue Mode
+This release adds Task Queue Mode for delegated multi-task child-agent workflows.
 
-- **In-memory Task Queue**: Added ability to enqueue multiple tasks with priority and retry logic.
-- **Concurrency Control**: Implemented `maxConcurrentTasks` to prevent system overload.
-- **Sentinel-based Tracking**: Added specific markers (`PICA_TASK_DONE`) for precise task completion detection.
-- **New Toolset**: Added 6 new queue-management tools (`enqueue`, `start`, `status`, `cancel`, `collect`, `clear`).
-- **Structured Queue Results**: Integrated structured result extraction into the queue collection workflow.
-- **Queue Tests**: Added comprehensive test suite for priority, concurrency, and retry behavior.
+### Added
+- In-memory task queue system
+- Six queue tools:
+  - child_agent_enqueue
+  - child_agent_queue_start
+  - child_agent_queue_status
+  - child_agent_queue_cancel
+  - child_agent_queue_collect
+  - child_agent_queue_clear
+- Priority support: low, normal, high
+- Concurrency control with max concurrent tasks
+- Retry support with max attempts
+- Task cancellation
+- Structured queue result collection
+- Sentinel-based task completion tracking
+- Task queue test suite
+
+### Verified
+- TypeScript build passes
+- 14 tools validated
+- Doctor passes
+- Security policy tests pass
+- Structured collect tests pass
+- Task queue tests pass
+- Windows native smoke tests pass
+- Crash recovery tests pass
+- Live workflow tests pass
+
+### Limitations
+- Container backend is implemented but still requires Docker/Podman verification on a capable machine
+- PTY/interactive terminal support is not implemented
+- Windows native mode is process isolation, not a hardened sandbox
 
 ## 0.1.10 (2026-07-02)
 
