@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.13 (2026-07-02)
+
+### Fixed
+- Include `queue/*.ts` and `state/*.ts` in npm package files array so published package includes the queue and state modules
+
 ## 0.1.12 (2026-07-02)
 
 This release adds Persistent State and Queue Recovery for surviving Pi restarts and inspecting/cleaning sessions after crashes.
