@@ -283,7 +283,11 @@ export class ChildSessionManager {
     // Validate scratch path
     const validation = this.guard.validatePath(scratchPath);
     if (!validation.allowed) {
-      throw new Error(validation.reason);
+      // Provide a helpful hint for Windows users hitting AppData protection
+      const hint = process.platform === 'win32' && scratchPath.toLowerCase().includes('appdata')
+        ? ' On Windows, use a path under C:\\Users\\Public\\ instead of AppData.'
+        : '';
+      throw new Error(validation.reason + hint);
     }
 
     // Ensure the log directory exists before starting backend
