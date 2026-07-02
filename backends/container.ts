@@ -4,6 +4,7 @@ import { SessionBackend } from "./base.js";
 
 export class ContainerBackend extends SessionBackend {
   name = "container";
+  get shellType(): string { return "bash"; }
   private binary: string = "docker";
   private image: string = "node:latest";
 

@@ -30,8 +30,10 @@ import { killProcessTree } from "../utils/process.js";
  */
 export class WindowsNativeBackend extends SessionBackend {
   name = "windows-native";
+  /** Return the detected shell dialect for sentinel wrapping */
+  get shellType(): string { return this.shellType_; }
   private processes: Map<string, ChildProcess> = new Map();
-  private shellType: "cmd" | "pwsh" | "powershell" = "cmd";
+  private shellType_: "cmd" | "pwsh" | "powershell" = "cmd";
 
   private detectShell(): string {
     const shells = ["pwsh", "powershell", "cmd"];
@@ -65,7 +67,7 @@ export class WindowsNativeBackend extends SessionBackend {
 
   async start(cwd: string, scratchPath: string, logPath: string): Promise<{ pid: number }> {
     const shell = this.detectShell();
-    this.shellType = shell as typeof this.shellType;
+    this.shellType_ = shell as typeof this.shellType_;
     const logStream = fs.createWriteStream(logPath, { flags: "a" });
 
     // ── Build the REPL command string ─────────────────────────────────────

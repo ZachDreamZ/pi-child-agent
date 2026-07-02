@@ -14,6 +14,7 @@ import { killProcessTree } from "../utils/process.js";
  */
 export class LocalShellBackend extends SessionBackend {
   name = "local-shell";
+  get shellType(): string { return "bash"; }
   private processes: Map<string, ChildProcess> = new Map();
   private logStreams: Map<string, fs.WriteStream> = new Map();
 

@@ -12,6 +12,7 @@ export class QueueManager {
   private queue: TaskQueue;
   private runningTasks: Set<string> = new Set();
   private isRunning: boolean = false;
+  private pollTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private manager: ChildSessionManager,
@@ -51,7 +52,10 @@ export class QueueManager {
 
   async stopQueue() {
     this.isRunning = false;
-    // We don't stop running tasks immediately unless requested by task cancellation
+    if (this.pollTimer) {
+      clearTimeout(this.pollTimer);
+      this.pollTimer = null;
+    }
   }
 
   async processQueue(maxConcurrent: number) {
@@ -66,7 +70,7 @@ export class QueueManager {
     }
 
     // Poll again after a short delay if we are still running
-    setTimeout(() => this.processQueue(maxConcurrent), 500);
+    this.pollTimer = setTimeout(() => this.processQueue(maxConcurrent), 500);
   }
 
   private async runTask(task: QueuedTask) {
@@ -107,7 +111,7 @@ export class QueueManager {
       this.queue.updateTask(task.id, { childId: session.id, logPath, scratchPath });
 
       // 3. Execute with Sentinels
-      const wrappedCommand = this.wrapCommand(task.id, task.command);
+      const wrappedCommand = this.wrapCommand(task.id, task.command, backend.shellType);
       const targetId = session.pid ? session.pid.toString() : session.id;
       await session.backend.send(targetId, wrappedCommand);
 
@@ -138,17 +142,21 @@ export class QueueManager {
     }
   }
 
-  private wrapCommand(taskId: string, command: string): string {
-    const startMarker = `echo PICA_TASK_START_${taskId}`;
-    const endMarker = `echo PICA_TASK_DONE_${taskId}`;
-    const failMarker = `echo PICA_TASK_FAIL_${taskId}`;
-    
-    if (process.platform === 'win32') {
-      // Use $LASTEXITCODE to detect failures for both native commands and scripts
-      return `${startMarker}; ${command}; if ($LASTEXITCODE -eq 0 -or $?) { ${endMarker} } else { ${failMarker} }`;
+  private wrapCommand(taskId: string, command: string, shellType: string): string {
+    const start = `echo PICA_TASK_START_${taskId}`;
+    const done = `echo PICA_TASK_DONE_${taskId}`;
+    const fail = `echo PICA_TASK_FAIL_${taskId}`;
+
+    if (shellType === "cmd") {
+      // cmd.exe: & is the command separator, %errorlevel% for exit code
+      // Wrap in parentheses so the if applies to the whole pipeline
+      return `${start} & (${command}) & if %errorlevel%==0 (${done}) else (${fail})`;
+    } else if (shellType === "pwsh" || shellType === "powershell") {
+      // PowerShell: ; separator, $LASTEXITCODE or $? for status
+      return `${start}; ${command}; if ($LASTEXITCODE -eq 0 -or $?) { ${done} } else { ${fail} }`;
     } else {
-      // Use bash && for success, and a fallback for failure
-      return `${startMarker} && ( ${command} && ${endMarker} || ${failMarker} )`;
+      // bash/sh/zsh: && chains
+      return `${start} && ( ${command} && ${done} || ${fail} )`;
     }
   }
 

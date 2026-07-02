@@ -17,11 +17,16 @@ export class SecurityGuard {
       /rm\s+-rf\s+\/.*$/.test(cmd) ||
       /format\s+.*$/.test(cmd) ||
       /diskpart.*$/.test(cmd) ||
-      /remove-item\s+-recurse\s+-force\s+c:\\.*$/.test(cmd) ||
+      /remove-item\s+-recurse.*$/.test(cmd) ||
       /shutdown.*$/.test(cmd) ||
       /bcdedit.*$/.test(cmd) ||
       /del\s+\/s.*$/.test(cmd) ||
-      /rmdir\s+\/s.*$/.test(cmd)
+      /rmdir\s+\/s.*$/.test(cmd) ||
+      /rd\s+\/s.*$/.test(cmd) ||
+      /takeown\s+\/f.*$/.test(cmd) ||
+      /icacls\s+.*\/grant.*$/.test(cmd) ||
+      /cipher\s+\/w:.*$/.test(cmd) ||
+      /wmic\s+.*delete.*$/.test(cmd)
     ) {
       return { category: "destructive", severity: "critical" };
     }

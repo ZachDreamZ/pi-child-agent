@@ -4,6 +4,7 @@ import { SessionBackend } from "./base.js";
 
 export class TmuxBackend extends SessionBackend {
   name = "tmux";
+  get shellType(): string { return "bash"; }
   private sessions: Set<string> = new Set();
 
   async start(cwd: string, scratchPath: string, logPath: string): Promise<{ pid: number }> {
