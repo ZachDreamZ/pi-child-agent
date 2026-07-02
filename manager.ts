@@ -10,7 +10,13 @@ import { QueueManager } from "./queue/queueManager.js";
 import { StateStore, PersistedChildSession, PersistedTask, getDefaultStateDir } from "./state/stateStore.js";
 import path from "node:path";
 import fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import os from "node:os";
+import { fileURLToPath } from "node:url";
+
+// Read package version at module load time — always reflects actual release
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PKG_VERSION = JSON.parse(readFileSync(path.join(__dirname, "package.json"), "utf-8")).version;
 
 export interface ChildSession {
   id: string;
@@ -59,7 +65,7 @@ export class ChildSessionManager {
       stateFile: cfg.stateFile,
       maxPersistedTasks: cfg.maxPersistedTasks,
       maxPersistedChildren: cfg.maxPersistedChildren,
-      packageVersion: "0.1.12",
+      packageVersion: PKG_VERSION,
     });
   }
 
