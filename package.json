@@ -7,14 +7,19 @@
   "license": "MIT",
   "keywords": [
     "pi-package",
+    "pi",
     "pi-extension",
+    "pi-coding-agent",
     "coding-agent",
     "child-agent",
     "subagent",
     "windows",
     "tmux",
     "docker",
-    "podman"
+    "podman",
+    "workflow",
+    "automation",
+    "security"
   ],
   "repository": {
     "type": "git",
@@ -79,7 +84,8 @@
   },
   "pi": {
     "extensions": [
-      "index.ts"
-    ]
+      "./index.ts"
+    ],
+    "skills": []
   }
 }
