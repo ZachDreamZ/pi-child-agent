@@ -1,6 +1,6 @@
 {
   "name": "pi-child-agent",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "description": "Native Windows-friendly child-agent workflow extension for Pi. Spawn isolated worker agents for code audit, delegated tasks, and sub-process management.",
   "type": "module",
   "main": "index.ts",
