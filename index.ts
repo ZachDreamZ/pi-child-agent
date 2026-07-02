@@ -135,8 +135,24 @@ export default async function (pi: ExtensionAPI) {
     }),
     execute: (async (_toolCallId, params, _signal, _onUpdate, ctx): Promise<any> => {
       try {
+        // If a specific taskId was requested, return just that task
+        if (params.taskId) {
+          const task = await manager.queue.collectTaskResult(params.taskId);
+          if (!task) {
+            return { content: [{ type: "text", text: `Task \`${params.taskId}\` not found.` }], details: { success: false } };
+          }
+          return {
+            content: [{ type: "text", text: `### 📦 Task Result\n\n**ID**: \`${task.taskId}\`\n**Status**: \`${task.status}\`\n**Result**: ${JSON.stringify(task.result)}` }],
+            details: { success: true, task },
+          };
+        }
+
+        // Otherwise return all completed tasks
         const completed = await manager.queue.listTasks({ status: ["succeeded", "failed", "timed_out", "canceled"], includeCompleted: true });
-        let report = `### 📦 Batch Results (${completed.length} tasks)\n\n`;
+        if (completed.length === 0) {
+          return { content: [{ type: "text", text: "No completed tasks." }], details: { success: true, tasks: [] } };
+        }
+        let report = `### 📦 Completed Tasks (${completed.length})\n\n`;
         for (const t of completed) {
           report += `- \`${t.id}\` (${t.title}): \`${t.status}\`\n`;
         }

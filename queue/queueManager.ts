@@ -126,8 +126,11 @@ export class QueueManager {
           finishedAt: Date.now(), 
           result: typeof structured === "string" ? structured : structured 
         });
+        await this.manager.persistTasksState();
       } else {
-        this.handleFailure(task, result.error || "Unknown error occurred during task execution");
+        const err = result.error || "Unknown error occurred during task execution";
+        this.handleFailure(task, err);
+        await this.manager.persistTasksState();
       }
 
       // 6. Cleanup
@@ -137,6 +140,7 @@ export class QueueManager {
 
     } catch (e: any) {
       this.handleFailure(task, e.message);
+      await this.manager.persistTasksState();
     } finally {
       this.runningTasks.delete(task.id);
     }
