@@ -32,6 +32,8 @@
     "scripts/*.sh",
     "scripts/*.ps1",
     "security/*.ts",
+    "queue/*.ts",
+    "state/*.ts",
     "types/*.d.ts",
     "utils/*.ts",
     "docs/*.md",
